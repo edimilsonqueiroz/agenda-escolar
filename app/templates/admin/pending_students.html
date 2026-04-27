@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Alunos Pendentes de Aprovação | Agenda Escolar{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Alunos Pendentes de Aprovação</h1>
+    <p class="text-muted">Gerencie cadastros de alunos que solicitaram registro</p>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="alerts">
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="card">
+  {% if students %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>E-mail</th>
+          <th>Data de Cadastro</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in students %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              {% if student.avatar %}
+              <img src="{{ url_for('static', filename='uploads/avatars/' + student.avatar) }}" alt="{{ student.full_name }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">
+              {% else %}
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600">
+                {{ student.full_name[0] }}
+              </div>
+              {% endif %}
+              <strong>{{ student.full_name }}</strong>
+            </div>
+          </td>
+          <td>{{ student.email }}</td>
+          <td>{{ student.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            <div style="display:flex;gap:8px">
+              <form method="post" action="{{ url_for('core.approve_student', student_id=student.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Aprovar este aluno?')">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  Aprovar
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('core.reject_student', student_id=student.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Rejeitar este aluno? A conta será deletada.')">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  Rejeitar
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginação -->
+  {% if students_pagination.pages > 1 %}
+  <div style="padding:20px;text-align:center;border-top:1px solid var(--border-color)">
+    {% if students_pagination.has_prev %}
+      <a href="{{ url_for('core.admin_pending_students', page=students_pagination.prev_num) }}" class="btn btn-secondary btn-sm">← Anterior</a>
+    {% endif %}
+
+    {% for page_num in students_pagination.iter_pages(left_edge=1, right_edge=4, left_margin=1, right_margin=1) %}
+      {% if page_num %}
+        {% if page_num == students_pagination.page %}
+          <button class="btn btn-primary btn-sm" disabled>{{ page_num }}</button>
+        {% else %}
+          <a href="{{ url_for('core.admin_pending_students', page=page_num) }}" class="btn btn-secondary btn-sm">{{ page_num }}</a>
+        {% endif %}
+      {% else %}
+        <span>...</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if students_pagination.has_next %}
+      <a href="{{ url_for('core.admin_pending_students', page=students_pagination.next_num) }}" class="btn btn-secondary btn-sm">Próximo →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="padding:40px;text-align:center;color:var(--text-muted)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="48" height="48" style="margin:0 auto;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p style="margin-top:16px;font-size:1.1rem">Nenhum aluno pendente de aprovação</p>
+    <p style="margin-top:4px">Todos os alunos foram já foram aprovados.</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+}
+
+.btn-success {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover {
+  background-color: #059669;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+</style>
+{% endblock %}

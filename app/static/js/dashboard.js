@@ -414,7 +414,14 @@ function startChat() {
   // O socket deve conectar em TODAS as páginas:
   // - aparece como online para outros usuários
   // - recebe badge de notificação de novas mensagens
-  const socket = io({ transports: ["websocket", "polling"] });
+  
+  // Verifica se socket.io foi carregado
+  if (typeof io === "undefined") {
+    console.error("socket.io não foi carregado. Verifique a URL /socket.io/socket.io.js");
+    return;
+  }
+
+  const socket = io({ transports: ["polling", "websocket"] });
   window.chatState.socket = socket;
 
   socket.on("presence:update", (payload) => {
@@ -523,8 +530,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const onChatPage = !!document.getElementById("chat-messages");
 
-  // Inicia socket em todas as páginas (para badge de notificação)
-  startChat();
+  // Aguarda socket.io estar disponível antes de iniciar
+  let attempts = 0;
+  const waitForSocketIO = setInterval(() => {
+    if (typeof io !== "undefined") {
+      clearInterval(waitForSocketIO);
+      startChat();
+    } else if (attempts++ > 50) {  // 5 segundos de espera
+      clearInterval(waitForSocketIO);
+      console.warn("socket.io não ficou disponível após 5 segundos");
+    }
+  }, 100);
 
   // Carrega histórico apenas na página de chat
   if (onChatPage) {

@@ -581,6 +581,64 @@ def admin_users():
     )
 
 
+@core_bp.get("/admin/alunos-pendentes")
+@login_required
+@roles_required("admin")
+def admin_pending_students():
+    """Lista alunos pendentes de aprovação"""
+    page, per_page = _read_pagination_params(default_per_page=12, max_per_page=50)
+    
+    # Busca alunos não aprovados
+    query = User.query.filter_by(role="aluno", is_approved=False)
+    
+    students_pagination = query.order_by(User.created_at.desc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False,
+    )
+    
+    return render_template(
+        "admin/pending_students.html",
+        students=students_pagination.items,
+        students_pagination=students_pagination,
+    )
+
+
+@core_bp.post("/admin/alunos/<int:student_id>/aprovar")
+@login_required
+@roles_required("admin")
+def approve_student(student_id):
+    """Aprova um aluno pendente"""
+    student = User.query.get_or_404(student_id)
+    
+    if student.role != "aluno" or student.is_approved:
+        flash("Operação inválida.", "danger")
+        return redirect(url_for("core.admin_pending_students"))
+    
+    student.is_approved = True
+    db.session.commit()
+    flash(f"Aluno {student.full_name} aprovado com sucesso!", "success")
+    return redirect(url_for("core.admin_pending_students"))
+
+
+@core_bp.post("/admin/alunos/<int:student_id>/rejeitar")
+@login_required
+@roles_required("admin")
+def reject_student(student_id):
+    """Rejeita um aluno pendente (deleta a conta)"""
+    student = User.query.get_or_404(student_id)
+    
+    if student.role != "aluno" or student.is_approved:
+        flash("Operação inválida.", "danger")
+        return redirect(url_for("core.admin_pending_students"))
+    
+    email = student.email
+    db.session.delete(student)
+    db.session.commit()
+    flash(f"Aluno com email {email} rejeitado e removido.", "warning")
+    return redirect(url_for("core.admin_pending_students"))
+
+
 def _validate_user_form(full_name, email, role, availabilities_payload, *, require_password=False, password=""):
     """Valida campos comuns do formulario de criar/editar usuario.
     
@@ -823,7 +881,7 @@ def admin_delete_user(user_id):
 def admin_classrooms():
     search = request.args.get("q", "").strip()
     year_filter = request.args.get("year", "").strip()
-    page, per_page = _read_pagination_params(default_per_page=12, max_per_page=50)
+    page, per_page = _read_pagination_params(default_per_page=10, max_per_page=50)
 
     query = Classroom.query
     if search:

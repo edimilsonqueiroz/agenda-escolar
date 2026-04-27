@@ -40,6 +40,7 @@ class User(TimestampMixin, UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, index=True)
     is_active_user = db.Column(db.Boolean, default=True, nullable=False)
+    is_approved = db.Column(db.Boolean, default=True, nullable=False)  # Para alunos auto-registrados
     can_chat = db.Column(db.Boolean, default=True, nullable=False)
     avatar = db.Column(db.String(255), nullable=True)
     crp_number = db.Column(db.String(30), nullable=True)

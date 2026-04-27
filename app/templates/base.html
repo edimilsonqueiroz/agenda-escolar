@@ -51,6 +51,16 @@
       </svg>
       <span class="nav-label">Usuarios</span>
     </a>
+    <a href="{{ url_for('core.admin_pending_students') }}"
+       class="nav-item {% if request.endpoint == 'core.admin_pending_students' %}nav-item--active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="10.5" cy="7" r="1.5"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span class="nav-label">Alunos Pendentes</span>
+    </a>
     <a href="{{ url_for('core.admin_classrooms') }}"
        class="nav-item {% if request.endpoint == 'core.admin_classrooms' %}nav-item--active{% endif %}">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -244,20 +254,27 @@
 {% else %}
 <!-- Layout sem autenticacao (login) -->
 <main class="page-auth">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="alerts">
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
   {% block auth_content %}{% endblock %}
 </main>
 {% endif %}
 
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  // Carrega socket.io dinamicamente com tratamento de erro
+  var script = document.createElement('script');
+  script.src = '/socket.io/socket.io.js';
+  script.onerror = function() {
+    console.error('Falha ao carregar socket.io de /socket.io/socket.io.js');
+    // Tenta fallback do CDN
+    var fallback = document.createElement('script');
+    fallback.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+    fallback.onerror = function() {
+      console.error('Falha ao carregar socket.io do CDN também');
+    };
+    document.head.appendChild(fallback);
+  };
+  document.head.appendChild(script);
+</script>
+
 <script>
   {% if current_user.is_authenticated %}
   {% set app_user = {

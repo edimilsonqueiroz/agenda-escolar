@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 {% block title %}Trabalhos | Agenda Escolar{% endblock %}
 {% block page_title %}Trabalhos{% endblock %}
 
@@ -98,19 +99,7 @@
         {% endfor %}
       </div>
 
-      {% if ongoing_pagination and ongoing_pagination.pages > 1 %}
-      <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
-        {% if ongoing_pagination.has_prev %}
-        <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='andamento', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.prev_num, page_finished=finished_pagination.page if finished_pagination else 1, per_page_ongoing=ongoing_pagination.per_page, per_page_finished=finished_pagination.per_page if finished_pagination else 12) }}">Anterior</a>
-        {% endif %}
-
-        <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ ongoing_pagination.page }} de {{ ongoing_pagination.pages }}</span>
-
-        {% if ongoing_pagination.has_next %}
-        <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='andamento', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.next_num, page_finished=finished_pagination.page if finished_pagination else 1, per_page_ongoing=ongoing_pagination.per_page, per_page_finished=finished_pagination.per_page if finished_pagination else 12) }}">Proxima</a>
-        {% endif %}
-      </div>
-      {% endif %}
+      {{ pagination(ongoing_pagination, 'core.professor_finished_assignments', {'tab': 'andamento', 'classroom_id': sel_classroom, 'page_finished': finished_pagination.page if finished_pagination else 1, 'per_page_ongoing': ongoing_pagination.per_page, 'per_page_finished': finished_pagination.per_page if finished_pagination else 12}) }}
     </div>
 
     <div id="tab-finalizados" {% if selected_tab != 'finalizados' %}hidden{% endif %}>
@@ -152,20 +141,7 @@
       {% endfor %}
     </div>
 
-    {% if finished_pagination and finished_pagination.pages > 1 %}
-    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
-      {% if finished_pagination.has_prev %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='finalizados', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.page if ongoing_pagination else 1, page_finished=finished_pagination.prev_num, per_page_ongoing=ongoing_pagination.per_page if ongoing_pagination else 12, per_page_finished=finished_pagination.per_page) }}">Anterior</a>
-      {% endif %}
-
-      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ finished_pagination.page }} de {{ finished_pagination.pages }}</span>
-
-      {% if finished_pagination.has_next %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='finalizados', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.page if ongoing_pagination else 1, page_finished=finished_pagination.next_num, per_page_ongoing=ongoing_pagination.per_page if ongoing_pagination else 12, per_page_finished=finished_pagination.per_page) }}">Proxima</a>
-      {% endif %}
-    </div>
-    {% endif %}
-    </div>
+    {{ pagination(finished_pagination, 'core.professor_finished_assignments', {'tab': 'finalizados', 'classroom_id': sel_classroom, 'page_ongoing': ongoing_pagination.page if ongoing_pagination else 1, 'per_page_ongoing': ongoing_pagination.per_page if ongoing_pagination else 12, 'per_page_finished': finished_pagination.per_page}) }}
   </div>
 </div>
 

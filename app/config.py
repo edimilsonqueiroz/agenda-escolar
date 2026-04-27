@@ -42,6 +42,14 @@ class Config:
     RATELIMIT_DEFAULT = os.getenv("RATE_LIMIT_DEFAULT", "200/day;50/hour")
     RATELIMIT_STORAGE_URI = os.getenv("RATE_LIMIT_STORAGE_URI", "memory://")
 
+    # Email Configuration
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "localhost")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True") == "True"
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "noreply@agendaescolar.local")
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

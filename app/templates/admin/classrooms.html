@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 {% block title %}Gerenciamento de Turmas | Agenda Escolar{% endblock %}
 {% block page_title %}Gerenciamento de Turmas{% endblock %}
 
@@ -27,7 +28,7 @@
       </select>
       <button class="btn btn-primary" type="submit">Filtrar</button>
       {% if search or year_filter %}
-        <a href="{{ url_for('core.admin_classrooms', per_page=classrooms_pagination.per_page if classrooms_pagination else 12) }}" class="btn btn-outline">Limpar</a>
+        <a href="{{ url_for('core.admin_classrooms', per_page=classrooms_pagination.per_page if classrooms_pagination else 10) }}" class="btn btn-outline">Limpar</a>
       {% endif %}
     </form>
   </div>
@@ -70,16 +71,47 @@
       </table>
     </div>
 
-    {% if classrooms_pagination and classrooms_pagination.pages > 1 %}
-    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+    <!-- Paginação -->
+    {% if classrooms_pagination %}
+    <div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:20px;padding:16px;border-top:1px solid var(--border)">
+      {# Botão Anterior #}
       {% if classrooms_pagination.has_prev %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_classrooms', q=search, year=year_filter, page=classrooms_pagination.prev_num, per_page=classrooms_pagination.per_page) }}">Anterior</a>
+      <a class="btn btn-outline" href="{{ url_for('core.admin_classrooms', page=classrooms_pagination.prev_num, q=search, year=year_filter) }}" style="padding:8px 12px;font-size:13px">← Anterior</a>
+      {% else %}
+      <span class="btn btn-outline" style="padding:8px 12px;font-size:13px;pointer-events:none;opacity:0.5">← Anterior</span>
       {% endif %}
 
-      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ classrooms_pagination.page }} de {{ classrooms_pagination.pages }}</span>
+      {# Números de página #}
+      {% set start_page = [1, classrooms_pagination.page - 2]|max %}
+      {% set end_page = [classrooms_pagination.pages, classrooms_pagination.page + 2]|min %}
 
+      {% if start_page > 1 %}
+        <a class="btn btn-outline" href="{{ url_for('core.admin_classrooms', page=1, q=search, year=year_filter) }}" style="padding:8px 12px;font-size:13px">1</a>
+        {% if start_page > 2 %}
+        <span class="btn btn-outline" style="padding:8px 12px;font-size:13px;pointer-events:none;border:none;background:none;color:var(--text-muted)">…</span>
+        {% endif %}
+      {% endif %}
+
+      {% for page_num in range(start_page, end_page + 1) %}
+        {% if page_num == classrooms_pagination.page %}
+        <span class="btn btn-primary" style="padding:8px 12px;font-size:13px;pointer-events:none">{{ page_num }}</span>
+        {% else %}
+        <a class="btn btn-outline" href="{{ url_for('core.admin_classrooms', page=page_num, q=search, year=year_filter) }}" style="padding:8px 12px;font-size:13px">{{ page_num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if end_page < classrooms_pagination.pages %}
+        {% if end_page < classrooms_pagination.pages - 1 %}
+        <span class="btn btn-outline" style="padding:8px 12px;font-size:13px;pointer-events:none;border:none;background:none;color:var(--text-muted)">…</span>
+        {% endif %}
+        <a class="btn btn-outline" href="{{ url_for('core.admin_classrooms', page=classrooms_pagination.pages, q=search, year=year_filter) }}" style="padding:8px 12px;font-size:13px">{{ classrooms_pagination.pages }}</a>
+      {% endif %}
+
+      {# Botão Próximo #}
       {% if classrooms_pagination.has_next %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_classrooms', q=search, year=year_filter, page=classrooms_pagination.next_num, per_page=classrooms_pagination.per_page) }}">Proxima</a>
+      <a class="btn btn-outline" href="{{ url_for('core.admin_classrooms', page=classrooms_pagination.next_num, q=search, year=year_filter) }}" style="padding:8px 12px;font-size:13px">Próximo →</a>
+      {% else %}
+      <span class="btn btn-outline" style="padding:8px 12px;font-size:13px;pointer-events:none;opacity:0.5">Próximo →</span>
       {% endif %}
     </div>
     {% endif %}
