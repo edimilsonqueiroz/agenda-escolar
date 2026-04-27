@@ -85,7 +85,10 @@ def register_hooks(app):
     def exempt_socketio():
         """Exempta socket.io do CSRF e rate limiting"""
         if request.path.startswith('/socket.io'):
-            request.environ['werkzeug.request'].csrf_exempt = True
+            request.environ['CSRF_EXEMPT'] = True
+            # Exemta rate limiting também
+            from flask_limiter import LIMITER_STORAGE_UNAVAILABLE_PLACEHOLDER
+            request.environ['RATELIMIT_LIMIT_REACHED'] = False
 
     @app.get("/health")
     def health_check():

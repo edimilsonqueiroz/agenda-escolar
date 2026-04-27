@@ -530,17 +530,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const onChatPage = !!document.getElementById("chat-messages");
 
-  // Aguarda socket.io estar disponível antes de iniciar
-  let attempts = 0;
-  const waitForSocketIO = setInterval(() => {
-    if (typeof io !== "undefined") {
-      clearInterval(waitForSocketIO);
-      startChat();
-    } else if (attempts++ > 50) {  // 5 segundos de espera
-      clearInterval(waitForSocketIO);
-      console.warn("socket.io não ficou disponível após 5 segundos");
-    }
-  }, 100);
+  // Aguarda socket.io estar disponível antes de iniciar (apenas para usuários autenticados)
+  if (window.APP_CONTEXT?.user) {
+    let attempts = 0;
+    const waitForSocketIO = setInterval(() => {
+      if (typeof io !== "undefined") {
+        clearInterval(waitForSocketIO);
+        startChat();
+      } else if (attempts++ > 50) {  // 5 segundos de espera
+        clearInterval(waitForSocketIO);
+        console.warn("socket.io não ficou disponível após 5 segundos");
+      }
+    }, 100);
+  }
 
   // Carrega histórico apenas na página de chat
   if (onChatPage) {

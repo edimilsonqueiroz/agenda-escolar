@@ -259,7 +259,8 @@
 {% endif %}
 
 <script>
-  // Carrega socket.io dinamicamente com tratamento de erro
+  {% if current_user.is_authenticated %}
+  // Carrega socket.io dinamicamente com tratamento de erro (apenas para usuarios autenticados)
   var script = document.createElement('script');
   script.src = '/socket.io/socket.io.js';
   script.onerror = function() {
@@ -273,6 +274,7 @@
     document.head.appendChild(fallback);
   };
   document.head.appendChild(script);
+  {% endif %}
 </script>
 
 <script>
