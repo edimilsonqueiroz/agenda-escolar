@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Trabalhos da Semana | Agenda Escolar{% endblock %}
+{% block page_title %}Trabalhos da Semana{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>Trabalhos da Semana</h2>
+      <p>Entregas de {{ week_start.strftime('%d/%m/%Y') }} a {{ week_end.strftime('%d/%m/%Y') }}.</p>
+    </div>
+    <div class="week-nav">
+      <a class="btn btn-outline week-nav-btn" href="{{ url_for('core.admin_assignments', week=week_offset-1, classroom_id=sel_classroom, teacher_id=sel_teacher) }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        Semana anterior
+      </a>
+      {% if week_offset != 0 %}
+      <a class="btn btn-outline week-nav-btn" href="{{ url_for('core.admin_assignments', week=0, classroom_id=sel_classroom, teacher_id=sel_teacher) }}">Semana atual</a>
+      {% endif %}
+      <a class="btn btn-outline week-nav-btn" href="{{ url_for('core.admin_assignments', week=week_offset+1, classroom_id=sel_classroom, teacher_id=sel_teacher) }}">
+        Proxima semana
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="panel reveal delay-1" style="margin-bottom:16px">
+    <form class="admin-filter-form" method="get" action="{{ url_for('core.admin_assignments') }}">
+      <select name="classroom_id">
+        <option value="">Todas as turmas</option>
+        {% for c in classrooms %}
+          <option value="{{ c.id }}" {% if sel_classroom == c.id|string %}selected{% endif %}>{{ c.name }} — {{ c.school_year }}</option>
+        {% endfor %}
+      </select>
+      <select name="teacher_id">
+        <option value="">Todos os professores</option>
+        {% for p in professors %}
+          <option value="{{ p.id }}" {% if sel_teacher == p.id|string %}selected{% endif %}>{{ p.full_name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      {% if sel_classroom or sel_teacher %}
+        <a href="{{ url_for('core.admin_assignments') }}" class="btn btn-outline">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Calendário semanal -->
+  <div class="week-calendar">
+    {% set day_names = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'] %}
+    {% for day in week_days %}
+    {% set is_today = (day == today) %}
+    {% set day_assignments = assignments_by_day.get(day, []) %}
+    <div class="week-col{% if is_today %} week-col--today{% endif %}">
+      <div class="week-col-header">
+        <span class="week-col-dayname">{{ day_names[loop.index0] }}</span>
+        <span class="week-col-date{% if is_today %} week-col-date--today{% endif %}">{{ day.strftime('%d/%m') }}</span>
+      </div>
+      <div class="week-col-body">
+        {% if day_assignments %}
+          {% for a in day_assignments %}
+          <div class="wcal-card">
+            <div class="wcal-card-title">{{ a.title }}</div>
+            <div class="wcal-card-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              {{ a.teacher.full_name }}
+            </div>
+            <div class="wcal-card-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              {{ a.classroom.name }} — {{ a.classroom.school_year }}
+            </div>
+            {% if a.description %}
+            <p class="wcal-card-desc">{{ a.description[:70] }}{% if a.description|length > 70 %}…{% endif %}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="wcal-empty">Nenhum trabalho</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

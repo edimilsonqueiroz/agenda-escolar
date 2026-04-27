@@ -1,0 +1,12 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-Migrate
+Flask-WTF
+Flask-SocketIO
+Flask-Limiter
+python-dotenv
+email-validator
+psycopg[binary]
+reportlab
+Pillow

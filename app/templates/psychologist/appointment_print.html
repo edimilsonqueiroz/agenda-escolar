@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Impressao de Acompanhamento{% endblock %}
+{% block page_title %}Impressao de Acompanhamento{% endblock %}
+
+{% block content %}
+<div class="panel print-sheet reveal">
+  <div class="print-controls no-print">
+    <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir agora</button>
+    <a href="{{ url_for('core.appointment_record_page', appointment_id=appointment.id) }}" class="btn btn-outline">Voltar ao acompanhamento</a>
+  </div>
+
+  <div class="print-header">
+    <h2>Relatorio de Acompanhamento Psicologico</h2>
+    <p>Protocolo: #{{ appointment.id }}</p>
+    <p>Gerado em: {{ generated_at.strftime('%d/%m/%Y %H:%M') }}</p>
+  </div>
+
+  <div class="record-meta" style="margin-bottom: 16px;">
+    <div class="record-meta-card">
+      <div class="record-meta-label">Psicologo(a)</div>
+      <div class="record-meta-value">{{ appointment.psychologist.full_name }}</div>
+    </div>
+    <div class="record-meta-card">
+      <div class="record-meta-label">Aluno(a)</div>
+      <div class="record-meta-value">{{ appointment.student.full_name }}</div>
+    </div>
+    <div class="record-meta-card">
+      <div class="record-meta-label">Status</div>
+      <div class="record-meta-value">{{ appointment.status|capitalize }}</div>
+    </div>
+    <div class="record-meta-card">
+      <div class="record-meta-label">Data e horario</div>
+      <div class="record-meta-value">{{ appointment.start_time.strftime('%d/%m/%Y %H:%M') }} - {{ appointment.end_time.strftime('%H:%M') }}</div>
+    </div>
+    <div class="record-meta-card">
+      <div class="record-meta-label">Criado em</div>
+      <div class="record-meta-value">{{ appointment.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+    </div>
+    <div class="record-meta-card">
+      <div class="record-meta-label">Atualizado em</div>
+      <div class="record-meta-value">{{ appointment.updated_at.strftime('%d/%m/%Y %H:%M') }}</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Observacao informada no agendamento</label>
+    <textarea readonly>{{ appointment.notes or '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label>Registro do atendimento psicologico</label>
+    <textarea readonly>{{ appointment.psychologist_notes or '' }}</textarea>
+  </div>
+</div>
+{% endblock %}

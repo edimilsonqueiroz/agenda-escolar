@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Estatisticas | Agenda Escolar{% endblock %}
+{% block page_title %}Visao Geral do Sistema{% endblock %}
+
+{% block content %}
+<div class="stats-page">
+
+  <!-- Resumo: atividade recente (últimos 30 dias) -->
+  <div class="stats-section reveal">
+    <div class="stats-section-title">Atividade nos ultimos 30 dias</div>
+    <div class="stats-kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ novos_usuarios }}</div>
+          <div class="kpi-label">Novos usuarios</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ novos_trabalhos }}</div>
+          <div class="kpi-label">Novos trabalhos</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ novas_consultas }}</div>
+          <div class="kpi-label">Novas consultas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Totais gerais -->
+  <div class="stats-section reveal delay-1">
+    <div class="stats-section-title">Totais do sistema</div>
+    <div class="stats-totals-grid">
+      <div class="total-card">
+        <div class="total-value">{{ total_users }}</div>
+        <div class="total-label">Usuarios totais</div>
+      </div>
+      <div class="total-card">
+        <div class="total-value">{{ total_classrooms }}</div>
+        <div class="total-label">Turmas</div>
+      </div>
+      <div class="total-card">
+        <div class="total-value">{{ total_assignments }}</div>
+        <div class="total-label">Trabalhos</div>
+      </div>
+      <div class="total-card">
+        <div class="total-value">{{ total_appointments }}</div>
+        <div class="total-label">Consultas</div>
+      </div>
+      <div class="total-card">
+        <div class="total-value">{{ total_messages }}</div>
+        <div class="total-label">Mensagens no chat</div>
+      </div>
+      <div class="total-card total-card--warning">
+        <div class="total-value">{{ total_inativos }}</div>
+        <div class="total-label">Usuarios inativos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid principal -->
+  <div class="stats-main-grid reveal delay-2">
+
+    <!-- Distribuição de usuários por papel -->
+    <div class="panel">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        </svg>
+        Usuarios por papel
+      </div>
+      <div class="role-chart">
+        {% set roles = [
+          ('Alunos',      total_alunos,      'aluno',     '#3b82f6'),
+          ('Professores', total_professores, 'professor', '#10b981'),
+          ('Psicologos',  total_psicologos,  'psicologo', '#8b5cf6'),
+          ('Admins',      total_admins,      'admin',     '#f59e0b'),
+        ] %}
+        {% for label, count, role, color in roles %}
+        <div class="role-row">
+          <div class="role-row-head">
+            <span class="badge-role badge-{{ role }}">{{ label }}</span>
+            <span class="role-count">{{ count }}</span>
+          </div>
+          <div class="role-bar-track">
+            <div class="role-bar-fill"
+                 style="width: {{ ((count / total_users * 100) if total_users > 0 else 0)|round(1) }}%; background: {{ color }};"></div>
+          </div>
+          <span class="role-pct">{{ ((count / total_users * 100) if total_users > 0 else 0)|round(1) }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Status das consultas -->
+    <div class="panel">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        Status das consultas
+      </div>
+      <div class="status-chart">
+        {% set statuses = [
+          ('Pendente',   appointments_pendentes,  'pendente',  '#f59e0b'),
+          ('Realizado',  appointments_realizados, 'realizado', '#10b981'),
+          ('Cancelado',  appointments_cancelados, 'cancelado', '#ef4444'),
+        ] %}
+        {% for label, count, status, color in statuses %}
+        <div class="status-row">
+          <div class="status-info">
+            <span class="status-dot" style="background:{{ color }};"></span>
+            <span class="status-label">{{ label }}</span>
+            <span class="status-count">{{ count }}</span>
+          </div>
+          <div class="role-bar-track">
+            <div class="role-bar-fill"
+                 style="width: {{ ((count / total_appointments * 100) if total_appointments > 0 else 0)|round(1) }}%; background: {{ color }};"></div>
+          </div>
+        </div>
+        {% endfor %}
+        {% if total_appointments == 0 %}
+        <div class="empty-state">Nenhuma consulta registrada.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Últimos usuários cadastrados -->
+    <div class="panel stats-panel-wide">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+        </svg>
+        Ultimos usuarios cadastrados
+      </div>
+      <div class="recent-users-list">
+        {% for user in recent_users %}
+        <div class="recent-user-row">
+          <div class="recent-user-avatar">{{ user.full_name[0]|upper }}</div>
+          <div class="recent-user-info">
+            <span class="recent-user-name">{{ user.full_name }}</span>
+            <span class="recent-user-email">{{ user.email }}</span>
+          </div>
+          <span class="badge-role badge-{{ user.role }}">{{ user.role|capitalize }}</span>
+          <span class="recent-user-date">{{ user.created_at.strftime('%d/%m/%Y') }}</span>
+          {% if not user.is_active_user %}<span class="badge-inactive">Inativo</span>{% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">Nenhum usuario encontrado.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Turmas -->
+    <div class="panel">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        Turmas cadastradas
+      </div>
+      <div class="classrooms-list">
+        {% for c in classrooms %}
+        <div class="classroom-row">
+          <div class="classroom-info">
+            <span class="classroom-name">{{ c.name }}</span>
+            <span class="classroom-year">{{ c.school_year }}</span>
+          </div>
+          <span class="classroom-count">{{ c.students|length }} aluno{{ 's' if c.students|length != 1 else '' }}</span>
+        </div>
+        {% else %}
+        <div class="empty-state">Nenhuma turma cadastrada.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

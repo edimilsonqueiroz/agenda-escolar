@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}Assinar Encaminhamento{% endblock %}
+{% block page_title %}Assinar Encaminhamento{% endblock %}
+
+{% block content %}
+<style>
+  .sign-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .sign-form {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .referral-info {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .referral-info-item {
+    display: flex;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+
+  .referral-info-label {
+    font-weight: 600;
+    min-width: 160px;
+    color: #333;
+  }
+
+  .referral-info-value {
+    color: #666;
+    flex: 1;
+  }
+
+  .signature-section {
+    margin: 24px 0;
+  }
+
+  .signature-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: #333;
+  }
+
+  .canvas-wrapper {
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  #signatureCanvas {
+    display: block;
+    cursor: crosshair;
+    background: white;
+    width: 100%;
+    height: auto;
+  }
+
+  .canvas-instructions {
+    font-size: 0.85rem;
+    color: #999;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+
+  .signature-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .btn-clear-sig {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+
+  .btn-clear-sig:hover {
+    background: #ebebeb;
+    border-color: #ccc;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .form-actions .btn {
+    flex: 1;
+    padding: 12px 20px;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-primary:hover {
+    background: #0056b3;
+  }
+
+  .btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+
+  .btn-outline {
+    background: white;
+    color: #007bff;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-outline:hover {
+    background: #f0f7ff;
+  }
+
+  .info-box {
+    background: #f0f7ff;
+    border-left: 4px solid #007bff;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    color: #333;
+  }
+
+  .priority-urgent { color: #dc3545; font-weight: 600; }
+  .priority-normal { color: #fd7e14; }
+  .priority-baixa { color: #28a745; }
+
+  .already-signed {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    color: #155724;
+  }
+
+  .already-signed strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  @media print {
+    .form-actions, .signature-buttons, .btn-clear-sig, .info-box {
+      display: none;
+    }
+    .sign-container {
+      padding: 0;
+    }
+    .sign-form {
+      box-shadow: none;
+      padding: 0;
+    }
+  }
+</style>
+
+<div class="sign-container">
+  <div class="sign-form">
+    <div class="referral-info">
+      <div class="referral-info-item">
+        <div class="referral-info-label">Protocolo:</div>
+        <div class="referral-info-value">#{{ referral.id }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Tipo:</div>
+        <div class="referral-info-value">{{ REFERRAL_TYPES.get(referral.referral_type, referral.referral_type) }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Aluno:</div>
+        <div class="referral-info-value">{{ referral.student.full_name }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Profissional:</div>
+        <div class="referral-info-value">{{ referral.professional_name or '(Não especificado)' }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Instituição:</div>
+        <div class="referral-info-value">{{ referral.institution or '(Não especificada)' }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Motivo:</div>
+        <div class="referral-info-value">{{ referral.reason }}</div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Prioridade:</div>
+        <div class="referral-info-value">
+          <span class="priority-{{ referral.priority }}">{{ referral.priority.upper() }}</span>
+        </div>
+      </div>
+      <div class="referral-info-item">
+        <div class="referral-info-label">Data:</div>
+        <div class="referral-info-value">{{ referral.referral_date.strftime('%d/%m/%Y') }}</div>
+      </div>
+    </div>
+
+    {% if referral.is_signed %}
+    <div class="already-signed">
+      <strong>✓ Assinado em {{ referral.signature_date.strftime('%d/%m/%Y às %H:%M') }}</strong>
+      <p>Este encaminhamento já foi assinado. Você pode imprimir ou assinar novamente.</p>
+    </div>
+    {% endif %}
+
+    <div class="info-box">
+      <strong>Instruções para assinatura:</strong> Desenhe sua assinatura no espaço abaixo usando o mouse ou touchpad.
+    </div>
+
+    <div class="signature-section">
+      <h3>Assinatura do(a) Psicólogo(a)</h3>
+      <div class="canvas-instructions">Clique e arraste para desenhar sua assinatura</div>
+      <div class="canvas-wrapper">
+        <canvas id="signatureCanvas" width="760" height="200"></canvas>
+      </div>
+      <button type="button" class="btn-clear-sig" onclick="clearSignature()">Limpar assinatura</button>
+    </div>
+
+    <form id="signatureForm" method="POST" onsubmit="return submitSignature(event)">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submitBtn">Assinar Encaminhamento</button>
+        <a href="{{ url_for('core.psychologist_referrals') }}" class="btn btn-outline">Cancelar</a>
+      </div>
+    </form>
+
+    {% if referral.is_signed %}
+    <div style="margin-top: 24px; text-align: center;">
+      <button type="button" class="btn btn-outline" onclick="window.print()">Imprimir Encaminhamento</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('signatureCanvas');
+  const ctx = canvas.getContext('2d');
+  let isDrawing = false;
+  let startX = 0;
+  let startY = 0;
+
+  // Set canvas resolution
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  // Set canvas background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw border
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+  {% if referral.is_signed %}
+  // Draw existing signature
+  const signatureImg = new Image();
+  signatureImg.onload = function() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(signatureImg, 0, 0);
+  };
+  signatureImg.onerror = function() {
+    console.error('Error loading signature image');
+  };
+  try {
+    signatureImg.src = 'data:image/png;base64,{{ signature_b64 if signature_b64 else '' }}';
+  } catch(e) {
+    console.error('Error setting signature image:', e);
+  }
+  {% endif %}
+
+  function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    const pos = getMousePos(e);
+    startX = pos.x;
+    startY = pos.y;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    const pos = getMousePos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#333';
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  });
+
+  canvas.addEventListener('mouseup', () => {
+    isDrawing = false;
+    ctx.closePath();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    isDrawing = false;
+    ctx.closePath();
+  });
+
+  function clearSignature() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function submitSignature(e) {
+    e.preventDefault();
+    
+    const signatureData = canvas.toDataURL('image/png');
+    
+    fetch('{{ url_for("core.save_referral_signature", referral_id=referral.id) }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        signature: signatureData
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Encaminhamento assinado com sucesso!');
+        window.location.href = '{{ url_for("core.psychologist_referrals") }}';
+      } else {
+        alert('Erro ao assinar: ' + (data.message || 'Erro desconhecido'));
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Erro ao salvar assinatura');
+    });
+  }
+</script>
+{% endblock %}

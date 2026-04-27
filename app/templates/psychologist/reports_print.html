@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Impressao de Relatorio Clinico{% endblock %}
+{% block page_title %}Impressao de Relatorio{% endblock %}
+
+{% block content %}
+<div class="panel print-sheet reveal">
+  <div class="print-controls no-print">
+    <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir agora</button>
+    <a href="{{ url_for('core.psychologist_reports', student_id=selected_student_id_raw) }}" class="btn btn-outline">Voltar aos relatorios</a>
+  </div>
+
+  <div class="print-header">
+    <h2>Relatorio de Acompanhamentos Psicologicos</h2>
+    <p>Profissional: {{ current_user.full_name }}</p>
+    <p>
+      Escopo:
+      {% if selected_student %}
+      Aluno(a) {{ selected_student.full_name }}
+      {% else %}
+      Todos os alunos atendidos
+      {% endif %}
+    </p>
+    <p>Gerado em: {{ generated_at.strftime('%d/%m/%Y %H:%M') }}</p>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:18px;">
+    <div class="stat-card"><span class="stat-value">{{ status_counts.total }}</span><span class="stat-label">Total</span></div>
+    <div class="stat-card"><span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span><span class="stat-label">Pendentes</span></div>
+    <div class="stat-card"><span class="stat-value">{{ status_counts.realizado }}</span><span class="stat-label">Realizados</span></div>
+    <div class="stat-card"><span class="stat-value">{{ status_counts.cancelado }}</span><span class="stat-label">Cancelados</span></div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="admin-table print-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Data/Horario</th>
+          <th>Aluno</th>
+          <th>Status</th>
+          <th>Observacao do aluno</th>
+          <th>Registro psicologico</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for appointment in appointments %}
+        <tr>
+          <td>{{ appointment.id }}</td>
+          <td>{{ appointment.start_time.strftime('%d/%m/%Y %H:%M') }} - {{ appointment.end_time.strftime('%H:%M') }}</td>
+          <td>{{ appointment.student.full_name }}</td>
+          <td>{{ appointment.status|capitalize }}</td>
+          <td>{{ appointment.notes or '—' }}</td>
+          <td>{{ appointment.psychologist_notes or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">Nenhum acompanhamento encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

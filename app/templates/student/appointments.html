@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Agendamentos | Agenda Escolar{% endblock %}
+{% block page_title %}Agendamentos{% endblock %}
+
+{% block content %}
+<div class="dash-grid">
+  <div class="panel reveal delay-1">
+    <div class="panel-title">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+      Agendar consulta psicologica
+    </div>
+
+    <form class="inline-form" method="post" action="{{ url_for('core.create_appointment') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="start_time" id="appointment-start-time" required>
+
+      <div class="form-group">
+        <label>Psicologo(a)</label>
+        <select id="psychologist-select" name="psychologist_id" required>
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Horarios disponiveis (segunda a sexta, intervalos de 40 minutos)</label>
+        <div id="appointment-week-nav" class="week-slot-nav" style="display:none">
+          <button type="button" class="btn btn-outline" id="appointment-prev-week">Semana anterior</button>
+          <span id="appointment-week-range" class="week-slot-range"></span>
+          <button type="button" class="btn btn-outline" id="appointment-next-week">Proxima semana</button>
+        </div>
+        <div id="appointment-weekly-slots" class="week-slot-board">
+          <div class="week-slot-empty">Selecione a psicologa para carregar os horarios.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Observacoes (opcional)</label>
+        <textarea name="notes" placeholder="Descreva brevemente o motivo"></textarea>
+      </div>
+
+      <button class="btn btn-primary" type="submit">Agendar Consulta</button>
+    </form>
+  </div>
+
+  <div class="panel reveal delay-2">
+    <div class="panel-title">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+      Historico de agendamentos
+    </div>
+
+    <div class="item-list">
+      {% for a in appointments %}
+      <div class="item-card">
+        <div class="item-card-title">{{ a.start_time.strftime('%d/%m/%Y %H:%M') }} – {{ a.end_time.strftime('%H:%M') }}</div>
+        <div class="item-card-meta">Psicologo(a): {{ a.psychologist.full_name }}</div>
+        {% if a.notes %}
+        <div class="item-card-meta">{{ a.notes[:90] }}{% if a.notes|length > 90 %}...{% endif %}</div>
+        {% endif %}
+        <span class="item-card-badge badge-{{ a.status }}">{{ a.status|capitalize }}</span>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+        Nenhum agendamento encontrado.
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if appointments_pagination and appointments_pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+      {% if appointments_pagination.has_prev %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.student_appointments', page=appointments_pagination.prev_num, per_page=appointments_pagination.per_page) }}">Anterior</a>
+      {% endif %}
+
+      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ appointments_pagination.page }} de {{ appointments_pagination.pages }}</span>
+
+      {% if appointments_pagination.has_next %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.student_appointments', page=appointments_pagination.next_num, per_page=appointments_pagination.per_page) }}">Proxima</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if appointments_pagination %}
+    <form method="get" style="display:flex;justify-content:center;gap:8px;margin-top:10px;align-items:center;">
+      <label for="student-appointments-per-page" style="font-size:.9rem;color:var(--text-muted)">Itens por pagina</label>
+      <select id="student-appointments-per-page" name="per_page" onchange="this.form.submit()" style="max-width:120px;">
+        <option value="10" {% if appointments_pagination.per_page == 10 %}selected{% endif %}>10</option>
+        <option value="20" {% if appointments_pagination.per_page == 20 %}selected{% endif %}>20</option>
+        <option value="30" {% if appointments_pagination.per_page == 30 %}selected{% endif %}>30</option>
+        <option value="50" {% if appointments_pagination.per_page == 50 %}selected{% endif %}>50</option>
+      </select>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

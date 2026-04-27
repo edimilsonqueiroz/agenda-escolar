@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+{% block title %}Gestao de Usuarios | Agenda Escolar{% endblock %}
+{% block page_title %}Gestao de Usuarios{% endblock %}
+
+{% block content %}
+<div class="reveal">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h2>Gestao de Usuarios</h2>
+      <p>Controle total sobre todos os perfis da plataforma.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('modal-novo')">+ Novo Usuario</button>
+  </div>
+
+  <!-- Cards de estatisticas -->
+  <div class="stats-grid reveal delay-1">
+    <div class="stat-card">
+      <span class="stat-value">{{ stats.total }}</span>
+      <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-card stat-card--admin">
+      <span class="stat-value">{{ stats.admin }}</span>
+      <span class="stat-label">Admins</span>
+    </div>
+    <div class="stat-card stat-card--professor">
+      <span class="stat-value">{{ stats.professor }}</span>
+      <span class="stat-label">Professores</span>
+    </div>
+    <div class="stat-card stat-card--aluno">
+      <span class="stat-value">{{ stats.aluno }}</span>
+      <span class="stat-label">Alunos</span>
+    </div>
+    <div class="stat-card stat-card--psicologo">
+      <span class="stat-value">{{ stats.psicologo }}</span>
+      <span class="stat-label">Psicologos</span>
+    </div>
+    <div class="stat-card stat-card--inativo">
+      <span class="stat-value">{{ stats.inativos }}</span>
+      <span class="stat-label">Inativos</span>
+    </div>
+  </div>
+
+  <!-- Filtros de busca -->
+  <div class="panel reveal delay-2">
+    <form class="admin-filter-form" method="get" action="{{ url_for('core.admin_users') }}">
+      <input name="q" value="{{ search }}" placeholder="Buscar por nome ou e-mail">
+      <select name="role">
+        <option value="">Todos os perfis</option>
+        <option value="admin"     {% if role_filter == 'admin'     %}selected{% endif %}>Admin</option>
+        <option value="professor" {% if role_filter == 'professor' %}selected{% endif %}>Professor</option>
+        <option value="aluno"     {% if role_filter == 'aluno'     %}selected{% endif %}>Aluno</option>
+        <option value="psicologo" {% if role_filter == 'psicologo' %}selected{% endif %}>Psicologo(a)</option>
+      </select>
+      <select name="per_page">
+        <option value="10" {% if users_pagination and users_pagination.per_page == 10 %}selected{% endif %}>10 por pagina</option>
+        <option value="12" {% if users_pagination and users_pagination.per_page == 12 %}selected{% endif %}>12 por pagina</option>
+        <option value="20" {% if users_pagination and users_pagination.per_page == 20 %}selected{% endif %}>20 por pagina</option>
+        <option value="50" {% if users_pagination and users_pagination.per_page == 50 %}selected{% endif %}>50 por pagina</option>
+      </select>
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      {% if search or role_filter %}
+        <a href="{{ url_for('core.admin_users', per_page=users_pagination.per_page if users_pagination else 12) }}" class="btn btn-outline">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Tabela de usuarios -->
+  <div class="panel reveal delay-2">
+    <div class="panel-title-row">
+      <h2>Usuarios ({{ users_pagination.total if users_pagination else users|length }})</h2>
+    </div>
+
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Turma</th>
+            <th>Status</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="{{ 'row-inactive' if not u.is_active_user }}">
+            <td>{{ u.id }}</td>
+            <td>{{ u.full_name }}</td>
+            <td>{{ u.email }}</td>
+            <td><span class="badge-role badge-{{ u.role }}">{{ u.role }}</span></td>
+            <td>{{ u.classroom.name if u.classroom else '—' }}</td>
+            <td>
+              <span class="badge-status {{ 'badge-active' if u.is_active_user else 'badge-inactive' }}">
+                {{ 'Ativo' if u.is_active_user else 'Inativo' }}
+              </span>
+            </td>
+            <td class="action-cell">
+              <button class="btn-icon edit-btn" title="Editar" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name|e }}" data-user-email="{{ u.email|e }}" data-user-role="{{ u.role }}" data-user-classroom="{{ u.classroom_id or '' }}" data-user-teaching='{{ u.teaching_classrooms|map(attribute="id")|list|tojson }}' data-user-availability='{{ availability_map.get(u.id, {})|tojson }}' data-user-crp="{{ u.crp_number or '' }}" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="btn-icon" title="Redefinir senha" onclick="openResetPwd({{ u.id }}, '{{ u.full_name|e }}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+              <button class="btn-icon" title="{{ 'Desativar' if u.is_active_user else 'Ativar' }}" onclick="openToggleModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.is_active_user else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center">{% if u.is_active_user %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="1"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>{% endif %}</button>
+              {% if u.id != current_user.id %}
+              <button class="btn-icon {% if not u.can_chat %}btn-icon--danger{% endif %}" title="{{ 'Desbloquear chat' if not u.can_chat else 'Bloquear chat' }}" onclick="openToggleChatModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.can_chat else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>{% if not u.can_chat %}<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>{% endif %}</svg></button>
+              <button class="btn-icon btn-icon--danger" title="Excluir" onclick="openDeleteModal({{ u.id }}, '{{ u.full_name|e }}')" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">Nenhum usuario encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if users_pagination and users_pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+      {% if users_pagination.has_prev %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_users', q=search, role=role_filter, page=users_pagination.prev_num, per_page=users_pagination.per_page) }}">Anterior</a>
+      {% endif %}
+
+      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ users_pagination.page }} de {{ users_pagination.pages }}</span>
+
+      {% if users_pagination.has_next %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_users', q=search, role=role_filter, page=users_pagination.next_num, per_page=users_pagination.per_page) }}">Proxima</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Modal: Novo usuario -->
+<div id="modal-novo" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--lg">
+    <div class="modal-header">
+      <h3>Novo usuario</h3>
+      <button class="modal-close" onclick="closeModal('modal-novo')">&#10005;</button>
+    </div>
+    <form id="form-novo" method="post" action="{{ url_for('core.admin_create_user') }}" class="modal-form modal-form--grid2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" style="display:none">
+      <div class="field">
+        <label>Nome completo</label>
+        <input name="full_name" required>
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input name="email" type="email" required>
+      </div>
+      <div class="field">
+        <label>Senha (minimo 6 caracteres)</label>
+        <input name="password" type="password" minlength="6" required>
+      </div>
+      <div class="field">
+        <label>Perfil</label>
+        <select name="role" id="role-novo" onchange="toggleClassroomFields('novo')" required>
+          <option value="">Selecione</option>
+
+          <option value="professor">Professor</option>
+          <option value="aluno">Aluno</option>
+          <option value="psicologo">Psicologo(a)</option>
+        </select>
+      </div>
+      <div id="classroom-field-novo" class="field field-full" style="display:none">
+        <label>Turmas que vai lecionar (professor)</label>
+        <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;display:flex;flex-direction:column;gap:4px">
+          {% for c in classrooms %}
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.875rem;font-weight:400;color:var(--text);padding:3px 0">
+              <input type="checkbox" name="teaching_classrooms" value="{{ c.id }}" style="cursor:pointer;flex-shrink:0;width:15px;height:15px">
+              {{ c.name }} - {{ c.school_year }}
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="student-classroom-field-novo" class="field field-full" style="display:none">
+        <label>Turma (apenas alunos)</label>
+        <select name="classroom_id">
+          <option value="">Sem turma</option>
+          {% for c in classrooms %}
+            <option value="{{ c.id }}">{{ c.name }} - {{ c.school_year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="psych-schedule-novo" class="field-full" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+        <div class="field" style="margin-bottom:10px">
+          <label>Numero de registro no CRP <span style="font-size:.8rem;color:var(--text-muted)">(Conselho Regional de Psicologia)</span></label>
+          <input id="crp-novo" name="crp_number" placeholder="Ex: 22/12345" maxlength="30">
+        </div>
+        <label style="margin-bottom:8px">Agenda semanal da psicologa (seg-sex)</label>
+        {% for weekday, label in weekdays %}
+        <div style="border:1px dashed var(--border);border-radius:var(--radius-sm);padding:8px;margin-bottom:8px">
+          <div style="font-weight:700;margin-bottom:6px">{{ label }}</div>
+          {% for period_key, period_label, default_start, default_end in periods %}
+          <div style="display:grid;grid-template-columns:18px 52px 1fr 14px 1fr;gap:6px;align-items:center;margin-bottom:6px">
+            <input type="checkbox" name="availability_{{ weekday }}_{{ period_key }}_enabled" id="availability-novo-{{ weekday }}-{{ period_key }}-enabled">
+            <span style="font-weight:600;font-size:0.85rem">{{ period_label }}</span>
+            <input type="time" name="availability_{{ weekday }}_{{ period_key }}_start" id="availability-novo-{{ weekday }}-{{ period_key }}-start" value="{{ default_start }}" style="width:100%">
+            <span style="text-align:center;color:var(--text-muted)">-</span>
+            <input type="time" name="availability_{{ weekday }}_{{ period_key }}_end" id="availability-novo-{{ weekday }}-{{ period_key }}-end" value="{{ default_end }}" style="width:100%">
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </form>
+    <div class="modal-actions">
+      <button class="btn btn-primary" type="submit" form="form-novo">Criar usuario</button>
+      <button class="btn btn-outline" type="button" onclick="closeModal('modal-novo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar usuario -->
+<div id="modal-editar" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--lg">
+    <div class="modal-header">
+      <h3>Editar usuario</h3>
+      <button class="modal-close" onclick="closeModal('modal-editar')">&#10005;</button>
+    </div>
+    <form id="form-editar" method="post" class="modal-form modal-form--grid2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" style="display:none">
+      <div class="field">
+        <label>Nome completo</label>
+        <input id="edit-name" name="full_name" required>
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="edit-email" name="email" type="email" required>
+      </div>
+      <div class="field">
+        <label>Perfil</label>
+        <select id="edit-role" name="role" onchange="toggleClassroomFields('editar')" required>
+          <option value="professor">Professor</option>
+          <option value="aluno">Aluno</option>
+          <option value="psicologo">Psicologo(a)</option>
+        </select>
+      </div>
+      <div id="student-classroom-field-editar" class="field" style="display:none">
+        <label>Turma (apenas alunos)</label>
+        <select id="edit-classroom" name="classroom_id">
+          <option value="">Sem turma</option>
+          {% for c in classrooms %}
+            <option value="{{ c.id }}">{{ c.name }} - {{ c.school_year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="classroom-field-editar" class="field field-full" style="display:none">
+        <label>Turmas que vai lecionar (professor)</label>
+        <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;display:flex;flex-direction:column;gap:4px">
+          {% for c in classrooms %}
+            <label id="classroom-editar-{{ c.id }}-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.875rem;font-weight:400;color:var(--text);padding:3px 0">
+              <input type="checkbox" name="teaching_classrooms" value="{{ c.id }}" id="classroom-editar-{{ c.id }}" style="cursor:pointer;flex-shrink:0;width:15px;height:15px">
+              {{ c.name }} - {{ c.school_year }}
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div id="psych-schedule-editar" class="field-full" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+        <div class="field" style="margin-bottom:10px">
+          <label>Numero de registro no CRP <span style="font-size:.8rem;color:var(--text-muted)">(Conselho Regional de Psicologia)</span></label>
+          <input id="crp-editar" name="crp_number" placeholder="Ex: 22/12345" maxlength="30">
+        </div>
+        <label style="margin-bottom:8px">Agenda semanal da psicologa (seg-sex)</label>
+        {% for weekday, label in weekdays %}
+        <div style="border:1px dashed var(--border);border-radius:var(--radius-sm);padding:8px;margin-bottom:8px">
+          <div style="font-weight:700;margin-bottom:6px">{{ label }}</div>
+          {% for period_key, period_label, default_start, default_end in periods %}
+          <div style="display:grid;grid-template-columns:18px 52px 1fr 14px 1fr;gap:6px;align-items:center;margin-bottom:6px">
+            <input type="checkbox" name="availability_{{ weekday }}_{{ period_key }}_enabled" id="availability-editar-{{ weekday }}-{{ period_key }}-enabled">
+            <span style="font-weight:600;font-size:0.85rem">{{ period_label }}</span>
+            <input type="time" name="availability_{{ weekday }}_{{ period_key }}_start" id="availability-editar-{{ weekday }}-{{ period_key }}-start" value="{{ default_start }}" style="width:100%">
+            <span style="text-align:center;color:var(--text-muted)">-</span>
+            <input type="time" name="availability_{{ weekday }}_{{ period_key }}_end" id="availability-editar-{{ weekday }}-{{ period_key }}-end" value="{{ default_end }}" style="width:100%">
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </form>
+    <div class="modal-actions">
+      <button class="btn btn-primary" type="submit" form="form-editar">Salvar alteracoes</button>
+      <button class="btn btn-outline" type="button" onclick="closeModal('modal-editar')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar exclusão usuário -->
+<div id="modal-delete-user" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3>Excluir usuário</h3>
+      <button class="modal-close" onclick="closeModal('modal-delete-user')">&#10005;</button>
+    </div>
+    <p id="delete-message" style="color:var(--text-muted);margin:0 0 12px"></p>
+    <form id="form-delete" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-actions">
+        <button class="btn btn-danger" type="submit">Excluir permanentemente</button>
+        <button class="btn btn-outline" type="button" onclick="closeModal('modal-delete-user')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Confirmar toggle chat -->
+<div id="modal-toggle-chat" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3 id="toggle-chat-title">Bloquear chat</h3>
+      <button class="modal-close" onclick="closeModal('modal-toggle-chat')">&#10005;</button>
+    </div>
+    <p id="toggle-chat-message" style="color:var(--text-muted);margin:0 0 12px"></p>
+    <form id="form-toggle-chat" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-actions">
+        <button class="btn btn-primary" type="submit" id="btn-confirm-toggle-chat">Confirmar</button>
+        <button class="btn btn-outline" type="button" onclick="closeModal('modal-toggle-chat')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Confirmar toggle usuário -->
+<div id="modal-toggle-user" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3 id="toggle-title">Desativar usuário</h3>
+      <button class="modal-close" onclick="closeModal('modal-toggle-user')">&#10005;</button>
+    </div>
+    <p id="toggle-message" style="color:var(--text-muted);margin:0 0 12px"></p>
+    <form id="form-toggle" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-actions">
+        <button class="btn btn-primary" type="submit" id="btn-confirm-toggle">Confirmar</button>
+        <button class="btn btn-outline" type="button" onclick="closeModal('modal-toggle-user')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Redefinir senha -->
+<div id="modal-senha" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3>Redefinir senha</h3>
+      <button class="modal-close" onclick="closeModal('modal-senha')">&#10005;</button>
+    </div>
+    <p id="pwd-user-name" style="color:var(--muted);margin:0 0 12px"></p>
+    <form id="form-senha" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Nova senha (minimo 6 caracteres)</label>
+      <input name="new_password" type="password" minlength="6" required>
+      <div class="modal-actions">
+        <button class="btn btn-primary" type="submit">Redefinir</button>
+        <button class="btn btn-outline" type="button" onclick="closeModal('modal-senha')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const BASE = "{{ url_for('core.admin_edit_user', user_id=0) }}".replace('0/editar', '');
+  const BASE_PWD = "{{ url_for('core.admin_reset_password', user_id=0) }}".replace('0/senha', '');
+  const BASE_TOGGLE = "{{ url_for('core.admin_toggle_user', user_id=0) }}".replace('0/toggle', '');
+  const BASE_CHAT_TOGGLE = "{{ url_for('core.admin_toggle_chat', user_id=0) }}".replace('0/toggle-chat', '');
+  const BASE_DELETE = "{{ url_for('core.admin_delete_user', user_id=0) }}".replace('0/excluir', '');
+
+  function openModal(id) {
+    document.getElementById(id).hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  function openToggleModal(id, name, isActive) {
+    const isoActive = isActive === true || isActive === 'true';
+    const action = isoActive ? 'Desativar' : 'Ativar';
+    
+    document.getElementById('toggle-title').textContent = `${action} usuário`;
+    document.getElementById('toggle-message').textContent = `Tem certeza que deseja ${action.toLowerCase()} ${name}?`;
+    document.getElementById('form-toggle').action = BASE_TOGGLE + id + '/toggle';
+    document.getElementById('btn-confirm-toggle').textContent = action;
+    
+    openModal('modal-toggle-user');
+  }
+
+  function openDeleteModal(id, name) {
+    document.getElementById('delete-message').textContent = `Tem certeza que deseja excluir ${name} permanentemente? Esta ação não pode ser desfeita.`;
+    document.getElementById('form-delete').action = BASE_DELETE + id + '/excluir';
+    openModal('modal-delete-user');
+  }
+
+  function openToggleChatModal(id, name, canChat) {
+    const allow = canChat === true || canChat === 'true';
+    const action = allow ? 'Bloquear' : 'Desbloquear';
+    document.getElementById('toggle-chat-title').textContent = `${action} chat`;
+    document.getElementById('toggle-chat-message').textContent = `Tem certeza que deseja ${action.toLowerCase()} o chat de ${name}?`;
+    document.getElementById('form-toggle-chat').action = BASE_CHAT_TOGGLE + id + '/toggle-chat';
+    document.getElementById('btn-confirm-toggle-chat').textContent = action;
+    openModal('modal-toggle-chat');
+  }
+
+  function toggleClassroomFields(modalSuffix) {
+    let roleSelectId, fieldWrapperId;
+
+    if (modalSuffix === 'novo') {
+      roleSelectId = 'role-novo';
+      fieldWrapperId = 'classroom-field-novo';
+    } else if (modalSuffix === 'editar') {
+      roleSelectId = 'edit-role';
+      fieldWrapperId = 'classroom-field-editar';
+    } else {
+      return;
+    }
+
+    const roleSelect = document.getElementById(roleSelectId);
+    if (!roleSelect) return;
+
+    const role = roleSelect.value;
+    const fieldWrapper = document.getElementById(fieldWrapperId);
+    if (fieldWrapper) fieldWrapper.style.display = role === 'professor' ? '' : 'none';
+
+    const studentField = document.getElementById(`student-classroom-field-${modalSuffix}`);
+    if (studentField) studentField.style.display = role === 'aluno' ? '' : 'none';
+
+    togglePsychologistSchedule(modalSuffix);
+  }
+
+  function togglePsychologistSchedule(modalSuffix) {
+    const roleSelectId = modalSuffix === 'novo' ? 'role-novo' : 'edit-role';
+    const scheduleId = modalSuffix === 'novo' ? 'psych-schedule-novo' : 'psych-schedule-editar';
+
+    const roleSelect = document.getElementById(roleSelectId);
+    const scheduleBox = document.getElementById(scheduleId);
+    if (!roleSelect || !scheduleBox) return;
+
+    scheduleBox.style.display = roleSelect.value === 'psicologo' ? '' : 'none';
+  }
+
+  function fillPsychologistAvailability(modalSuffix, availabilityMap = {}) {
+    const defaults = {
+      manha: { start: '08:00', end: '12:00' },
+      tarde: { start: '13:00', end: '17:00' },
+    };
+
+    ['manha', 'tarde'].forEach(period => {
+      for (let weekday = 0; weekday <= 4; weekday++) {
+        const checkbox = document.getElementById(`availability-${modalSuffix}-${weekday}-${period}-enabled`);
+        const startInput = document.getElementById(`availability-${modalSuffix}-${weekday}-${period}-start`);
+        const endInput = document.getElementById(`availability-${modalSuffix}-${weekday}-${period}-end`);
+        if (!checkbox || !startInput || !endInput) continue;
+
+        const key = `${weekday}_${period}`;
+        const row = availabilityMap[key] || null;
+        checkbox.checked = !!(row && row.active);
+        startInput.value = row && row.start ? row.start : defaults[period].start;
+        endInput.value = row && row.end ? row.end : defaults[period].end;
+      }
+    });
+  }
+
+  function openEdit(id, name, email, role, classroomId, teachingClassroomIds = [], availabilityMap = {}, crpNumber = '') {
+    id = String(id);
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-email').value = email;
+    document.getElementById('edit-role').value = role;
+    document.getElementById('edit-classroom').value = classroomId || '';
+    
+    // Desmarcar todos os checkboxes
+    document.querySelectorAll('#classroom-field-editar input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+    });
+    
+    // Marcar os checkboxes das turmas que o professor leciona
+    if (Array.isArray(teachingClassroomIds)) {
+      teachingClassroomIds.forEach(classroomId => {
+        const checkbox = document.getElementById(`classroom-editar-${classroomId}`);
+        if (checkbox) checkbox.checked = true;
+      });
+    }
+
+    fillPsychologistAvailability('editar', availabilityMap);
+    const crpInput = document.getElementById('crp-editar');
+    if (crpInput) crpInput.value = crpNumber || '';
+    
+    // Mostrar/esconder campos de turma baseado no role
+    toggleClassroomFields('editar');
+    
+    document.getElementById('form-editar').action = BASE + id + '/editar';
+    openModal('modal-editar');
+  }
+
+  function openResetPwd(id, name) {
+    document.getElementById('pwd-user-name').textContent = 'Usuario: ' + name;
+    document.getElementById('form-senha').action = BASE_PWD + id + '/senha';
+    openModal('modal-senha');
+  }
+
+  // Fecha modal ao clicar fora
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal(overlay.id);
+    });
+  });
+
+  // Event listeners para os botões de editar
+  document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.userId;
+      const name = btn.dataset.userName;
+      const email = btn.dataset.userEmail;
+      const role = btn.dataset.userRole;
+      const classroomId = btn.dataset.userClassroom;
+      let teachingClassroomIds = [];
+      let availabilityMap = {};
+      try {
+        teachingClassroomIds = JSON.parse(btn.dataset.userTeaching);
+      } catch (e) {
+        teachingClassroomIds = [];
+      }
+      try {
+        availabilityMap = JSON.parse(btn.dataset.userAvailability || '{}');
+      } catch (e) {
+        availabilityMap = {};
+      }
+      const crp = btn.dataset.userCrp || '';
+      openEdit(id, name, email, role, classroomId, teachingClassroomIds, availabilityMap, crp);
+    });
+  });
+
+  fillPsychologistAvailability('novo', {});
+  toggleClassroomFields('novo');
+</script>
+{% endblock %}

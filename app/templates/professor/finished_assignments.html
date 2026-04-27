@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Trabalhos | Agenda Escolar{% endblock %}
+{% block page_title %}Trabalhos{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>Trabalhos</h2>
+      <p>Acompanhe seus trabalhos em andamento e finalizados.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <a class="btn btn-outline" href="{{ url_for('core.professor_assignments') }}">Abrir Agenda Semanal</a>
+    </div>
+  </div>
+
+  <div class="panel reveal delay-1" style="margin-bottom:16px">
+    <form class="admin-filter-form" method="get" action="{{ url_for('core.professor_finished_assignments') }}">
+      <input type="hidden" name="tab" value="{{ selected_tab }}">
+      <input type="hidden" name="page_ongoing" value="1">
+      <input type="hidden" name="page_finished" value="1">
+      <select name="classroom_id">
+        <option value="">Todas as turmas</option>
+        {% for c in classrooms %}
+          <option value="{{ c.id }}" {% if sel_classroom == c.id|string %}selected{% endif %}>{{ c.name }} — {{ c.school_year }}</option>
+        {% endfor %}
+      </select>
+      <select name="per_page_ongoing">
+        <option value="10" {% if ongoing_pagination and ongoing_pagination.per_page == 10 %}selected{% endif %}>10 em andamento</option>
+        <option value="12" {% if ongoing_pagination and ongoing_pagination.per_page == 12 %}selected{% endif %}>12 em andamento</option>
+        <option value="20" {% if ongoing_pagination and ongoing_pagination.per_page == 20 %}selected{% endif %}>20 em andamento</option>
+        <option value="50" {% if ongoing_pagination and ongoing_pagination.per_page == 50 %}selected{% endif %}>50 em andamento</option>
+      </select>
+      <select name="per_page_finished">
+        <option value="10" {% if finished_pagination and finished_pagination.per_page == 10 %}selected{% endif %}>10 finalizados</option>
+        <option value="12" {% if finished_pagination and finished_pagination.per_page == 12 %}selected{% endif %}>12 finalizados</option>
+        <option value="20" {% if finished_pagination and finished_pagination.per_page == 20 %}selected{% endif %}>20 finalizados</option>
+        <option value="50" {% if finished_pagination and finished_pagination.per_page == 50 %}selected{% endif %}>50 finalizados</option>
+      </select>
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      {% if sel_classroom %}
+        <a href="{{ url_for('core.professor_finished_assignments', tab=selected_tab, per_page_ongoing=ongoing_pagination.per_page if ongoing_pagination else 12, per_page_finished=finished_pagination.per_page if finished_pagination else 12) }}" class="btn btn-outline">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="panel reveal delay-2">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button type="button" class="btn btn-sm works-tab-btn {% if selected_tab == 'andamento' %}btn-primary{% else %}btn-outline{% endif %}" data-tab="andamento">
+        Em andamento ({{ ongoing_assignments|length }})
+      </button>
+      <button type="button" class="btn btn-sm works-tab-btn {% if selected_tab == 'finalizados' %}btn-primary{% else %}btn-outline{% endif %}" data-tab="finalizados">
+        Finalizados ({{ finished_assignments|length }})
+      </button>
+    </div>
+
+    <input type="hidden" id="selected-tab" value="{{ selected_tab }}">
+
+    <div id="tab-andamento" {% if selected_tab != 'andamento' %}hidden{% endif %}>
+      <div class="panel-title-row">
+        <div class="panel-title" style="margin:0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5l7.5-7.5 4.5 4.5L21 4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 4.5v6h-6"/></svg>
+          Trabalhos em Andamento
+        </div>
+      </div>
+      <div class="item-list" style="margin-top:10px">
+        {% for a in ongoing_assignments %}
+        <div class="item-card">
+          <a href="{{ url_for('core.teacher_view_submissions', assignment_id=a.id) }}" style="text-decoration:none;color:inherit;display:block">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <span class="item-card-title" style="flex:1">{{ a.title }}</span>
+              <span style="font-size:.72rem;background:var(--primary);color:#fff;border-radius:4px;padding:2px 7px;white-space:nowrap">Em andamento</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:4px">
+              <div class="item-card-meta">Turma: <strong>{{ a.classroom.name }}</strong></div>
+              {% if a.subject %}<div class="item-card-meta" style="color:var(--primary);font-weight:600">{{ a.subject }}</div>{% endif %}
+              <div class="item-card-meta">Entrega: <strong>{{ a.due_date.strftime('%d/%m/%Y') }}</strong></div>
+            </div>
+            <div class="item-card-meta" style="margin-top:4px">
+              {{ a.submissions|length }} entrega{{ 's' if a.submissions|length != 1 else '' }} recebida{{ 's' if a.submissions|length != 1 else '' }}
+            </div>
+          </a>
+          <div style="margin-top:10px;display:flex;justify-content:flex-end">
+            <button
+              type="button"
+              class="btn btn-sm btn-delete-assignment"
+              style="color:var(--danger);border-color:var(--danger)"
+              data-id="{{ a.id }}"
+              data-title="{{ a.title|e }}"
+            >Excluir</button>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+          Nenhum trabalho em andamento.
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if ongoing_pagination and ongoing_pagination.pages > 1 %}
+      <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+        {% if ongoing_pagination.has_prev %}
+        <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='andamento', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.prev_num, page_finished=finished_pagination.page if finished_pagination else 1, per_page_ongoing=ongoing_pagination.per_page, per_page_finished=finished_pagination.per_page if finished_pagination else 12) }}">Anterior</a>
+        {% endif %}
+
+        <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ ongoing_pagination.page }} de {{ ongoing_pagination.pages }}</span>
+
+        {% if ongoing_pagination.has_next %}
+        <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='andamento', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.next_num, page_finished=finished_pagination.page if finished_pagination else 1, per_page_ongoing=ongoing_pagination.per_page, per_page_finished=finished_pagination.per_page if finished_pagination else 12) }}">Proxima</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="tab-finalizados" {% if selected_tab != 'finalizados' %}hidden{% endif %}>
+    <div class="panel-title-row">
+      <div class="panel-title" style="margin:0">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 1 0 0 12.728M12 7.5v4.5l3 3"/></svg>
+        Trabalhos Finalizados
+      </div>
+    </div>
+    <div class="item-list" style="margin-top:10px">
+      {% for a in finished_assignments %}
+      <div class="item-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <span class="item-card-title" style="flex:1">{{ a.title }}</span>
+          <span style="font-size:.72rem;background:var(--text-muted);color:#fff;border-radius:4px;padding:2px 7px;white-space:nowrap">Finalizado</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:4px">
+          <div class="item-card-meta">Turma: <strong>{{ a.classroom.name }}</strong></div>
+          {% if a.subject %}<div class="item-card-meta" style="color:var(--primary);font-weight:600">{{ a.subject }}</div>{% endif %}
+          <div class="item-card-meta">Entrega anterior: <strong>{{ a.due_date.strftime('%d/%m/%Y') }}</strong></div>
+        </div>
+        <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
+          <button
+            type="button"
+            class="btn btn-outline btn-sm btn-reopen-assignment"
+            data-id="{{ a.id }}"
+            data-title="{{ a.title|e }}"
+            data-due-date="{{ a.due_date.strftime('%Y-%m-%d') }}"
+          >
+            Reabrir Trabalho
+          </button>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+        Nenhum trabalho finalizado para reabrir.
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if finished_pagination and finished_pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+      {% if finished_pagination.has_prev %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='finalizados', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.page if ongoing_pagination else 1, page_finished=finished_pagination.prev_num, per_page_ongoing=ongoing_pagination.per_page if ongoing_pagination else 12, per_page_finished=finished_pagination.per_page) }}">Anterior</a>
+      {% endif %}
+
+      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ finished_pagination.page }} de {{ finished_pagination.pages }}</span>
+
+      {% if finished_pagination.has_next %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.professor_finished_assignments', tab='finalizados', classroom_id=sel_classroom, page_ongoing=ongoing_pagination.page if ongoing_pagination else 1, page_finished=finished_pagination.next_num, per_page_ongoing=ongoing_pagination.per_page if ongoing_pagination else 12, per_page_finished=finished_pagination.per_page) }}">Proxima</a>
+      {% endif %}
+    </div>
+    {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="modal-delete-assignment" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3>Excluir Trabalho</h3>
+      <button class="modal-close" type="button" onclick="closeDeleteAssignmentModal()">&#10005;</button>
+    </div>
+    <p style="color:var(--text-muted);margin:0 0 4px">Você está prestes a excluir:</p>
+    <p id="delete-assignment-title" style="font-weight:700;margin:0 0 12px"></p>
+    <p style="color:var(--danger);font-size:.9rem;margin:0 0 16px">Esta ação é irreversível. Todas as submissões dos alunos também serão excluídas.</p>
+    <form id="form-delete-assignment" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+      <div class="modal-actions">
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" type="submit">Confirmar Exclusão</button>
+        <button class="btn btn-outline" type="button" onclick="closeDeleteAssignmentModal()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-reopen-assignment" class="modal-overlay" hidden>
+  <div class="modal-box modal-box--sm">
+    <div class="modal-header">
+      <h3>Reabrir Trabalho</h3>
+      <button class="modal-close" type="button" onclick="closeReopenAssignmentModal()">&#10005;</button>
+    </div>
+    <p id="reopen-assignment-title" style="color:var(--text-muted);margin:0 0 12px"></p>
+    <form id="form-reopen-assignment" method="post" class="modal-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+      <label>Nova data de entrega</label>
+      <input id="reopen-assignment-date" name="due_date" type="date" required>
+      <div class="modal-actions">
+        <button class="btn btn-primary" type="submit">Salvar e Reabrir</button>
+        <button class="btn btn-outline" type="button" onclick="closeReopenAssignmentModal()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const REOPEN_ASSIGNMENT_BASE = "/assignments/";
+
+function setWorksTab(tabName) {
+  const tabAndamento = document.getElementById('tab-andamento');
+  const tabFinalizados = document.getElementById('tab-finalizados');
+  const selectedTabInput = document.getElementById('selected-tab');
+  if (!tabAndamento || !tabFinalizados || !selectedTabInput) return;
+
+  const showAndamento = tabName === 'andamento';
+  tabAndamento.hidden = !showAndamento;
+  tabFinalizados.hidden = showAndamento;
+  selectedTabInput.value = showAndamento ? 'andamento' : 'finalizados';
+
+  document.querySelectorAll('.works-tab-btn').forEach(function(btn) {
+    const active = btn.dataset.tab === selectedTabInput.value;
+    btn.classList.toggle('btn-primary', active);
+    btn.classList.toggle('btn-outline', !active);
+  });
+}
+
+document.addEventListener('click', function(e) {
+  const tabBtn = e.target.closest('.works-tab-btn');
+  if (tabBtn) {
+    setWorksTab(tabBtn.dataset.tab);
+    return;
+  }
+});
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.btn-reopen-assignment');
+  if (!btn) return;
+  const d = btn.dataset;
+  openReopenAssignmentModal(d.id, d.title, d.dueDate);
+});
+
+function openReopenAssignmentModal(assignmentId, title, dueDate) {
+  const modal = document.getElementById('modal-reopen-assignment');
+  if (!modal) return;
+
+  document.getElementById('reopen-assignment-title').textContent = `Trabalho: ${title}`;
+  document.getElementById('reopen-assignment-date').value = dueDate || '';
+  document.getElementById('form-reopen-assignment').action = REOPEN_ASSIGNMENT_BASE + assignmentId + '/reopen';
+
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReopenAssignmentModal() {
+  const modal = document.getElementById('modal-reopen-assignment');
+  if (!modal) return;
+
+  modal.hidden = true;
+  document.body.style.overflow = '';
+}
+
+const reopenModal = document.getElementById('modal-reopen-assignment');
+if (reopenModal) {
+  reopenModal.addEventListener('click', function (e) {
+    if (e.target === reopenModal) {
+      closeReopenAssignmentModal();
+    }
+  });
+}
+
+setWorksTab(document.getElementById('selected-tab')?.value || 'andamento');
+
+const DELETE_ASSIGNMENT_BASE = "/assignments/";
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.btn-delete-assignment');
+  if (!btn) return;
+  openDeleteAssignmentModal(btn.dataset.id, btn.dataset.title);
+});
+
+function openDeleteAssignmentModal(assignmentId, title) {
+  const modal = document.getElementById('modal-delete-assignment');
+  if (!modal) return;
+  document.getElementById('delete-assignment-title').textContent = title;
+  document.getElementById('form-delete-assignment').action = DELETE_ASSIGNMENT_BASE + assignmentId + '/delete';
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteAssignmentModal() {
+  const modal = document.getElementById('modal-delete-assignment');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.style.overflow = '';
+}
+
+const deleteModal = document.getElementById('modal-delete-assignment');
+if (deleteModal) {
+  deleteModal.addEventListener('click', function(e) {
+    if (e.target === deleteModal) closeDeleteAssignmentModal();
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Encaminhamentos | Agenda Escolar{% endblock %}
+{% block page_title %}Encaminhamentos{% endblock %}
+
+{% block content %}
+<div class="panel reveal">
+  <div class="panel-title">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+    Encaminhamentos Realizados
+  </div>
+
+  <form method="get" class="inline-form" style="margin-bottom:14px;display:grid;grid-template-columns: 1fr auto;gap:10px;align-items:end;">
+    <div class="form-group" style="margin:0;">
+      <label for="status">Filtrar por status</label>
+      <select id="status" name="status">
+        <option value="" {% if not status_filter %}selected{% endif %}>Todos</option>
+        <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Pendentes</option>
+        <option value="realizado" {% if status_filter == 'realizado' %}selected{% endif %}>Realizados</option>
+        <option value="recusado" {% if status_filter == 'recusado' %}selected{% endif %}>Recusados</option>
+        <option value="cancelado" {% if status_filter == 'cancelado' %}selected{% endif %}>Cancelados</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:end;">
+      <button type="submit" class="btn btn-primary">Aplicar</button>
+      {% if status_filter %}
+      <a href="{{ url_for('core.psychologist_referrals') }}" class="btn btn-outline">Limpar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="stats-totals-grid" style="margin-bottom:14px;">
+    <div class="total-card"><div class="total-value">{{ status_counts.total }}</div><div class="total-label">Total</div></div>
+    <div class="total-card"><div class="total-value">{{ status_counts.pendente }}</div><div class="total-label">Pendentes</div></div>
+    <div class="total-card"><div class="total-value">{{ status_counts.realizado }}</div><div class="total-label">Realizados</div></div>
+    <div class="total-card"><div class="total-value">{{ status_counts.recusado }}</div><div class="total-label">Recusados</div></div>
+    <div class="total-card"><div class="total-value">{{ status_counts.cancelado }}</div><div class="total-label">Cancelados</div></div>
+  </div>
+
+  <div class="item-list">
+    {% for referral in referrals %}
+    <div class="item-card">
+      <div class="item-card-title">
+        {{ referral.referral_type|capitalize }}
+        {% if referral.professional_name %} — {{ referral.professional_name }}{% endif %}
+      </div>
+      {% if referral.institution %}<div class="item-card-meta">{{ referral.institution }}</div>{% endif %}
+      <div class="item-card-meta">Aluno(a): {{ referral.student.full_name }}</div>
+      <div class="item-card-meta">{{ referral.reason[:100] }}{% if referral.reason|length > 100 %}...{% endif %}</div>
+      <div class="item-card-meta" style="margin-top:6px; font-size:12px;">
+        Data: {{ referral.referral_date.strftime('%d/%m/%Y') }}
+        | Prioridade: <span style="font-weight: 600; color: {% if referral.priority == 'urgente' %}#d32f2f{% elif referral.priority == 'normal' %}var(--primary){% else %}#757575{% endif %}">{{ referral.priority|capitalize }}</span>
+      </div>
+      <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <span class="item-card-badge badge-{{ referral.status }}">{{ referral.status|capitalize }}</span>
+        {% if referral.status != 'realizado' and referral.status != 'cancelado' %}
+        <form method="post" action="{{ url_for('core.update_referral_status', referral_id=referral.id) }}" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <select name="status" style="font-size: 12px; padding: 4px 6px;" onchange="this.form.submit();">
+            <option value="">Alterar status...</option>
+            <option value="realizado">Marcar como Realizado</option>
+            <option value="recusado">Marcar como Recusado</option>
+            <option value="cancelado">Marcar como Cancelado</option>
+          </select>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('core.appointment_record_page', appointment_id=referral.appointment_id) }}" class="btn btn-sm btn-outline">Ver atendimento</a>
+        <a href="{{ url_for('core.referral_sign_page', referral_id=referral.id) }}" class="btn btn-sm" style="background: #28a745; color: white; border: none;">✓ Assinar</a>
+        <a href="{{ url_for('core.print_referral', referral_id=referral.id) }}" class="btn btn-sm btn-outline" target="_blank" rel="noopener">🖨 Imprimir</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+      Nenhum encaminhamento encontrado.
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if referrals_pagination and referrals_pagination.pages > 1 %}
+  <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+    {% if referrals_pagination.has_prev %}
+    <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_referrals', status=status_filter, page=referrals_pagination.prev_num) }}">Anterior</a>
+    {% endif %}
+
+    <span class="btn btn-sm btn-outline" style="pointer-events:none">Página {{ referrals_pagination.page }} de {{ referrals_pagination.pages }}</span>
+
+    {% if referrals_pagination.has_next %}
+    <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_referrals', status=status_filter, page=referrals_pagination.next_num) }}">Próxima</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

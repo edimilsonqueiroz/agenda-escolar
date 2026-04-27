@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Registro de Atendimento{% endblock %}
+
+{% block content %}
+<div class="main-content record-page">
+  <div class="panel reveal">
+    <div class="panel-title">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H16.5M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5M7.5 3.75h9"/></svg>
+      Registro de Atendimento Psicologico
+    </div>
+
+    <div class="record-meta">
+      <div class="record-meta-card">
+        <div class="record-meta-label">Aluno(a)</div>
+        <div class="record-meta-value">{{ appointment.student.full_name }}</div>
+      </div>
+      <div class="record-meta-card">
+        <div class="record-meta-label">Data e horario</div>
+        <div class="record-meta-value">{{ appointment.start_time.strftime('%d/%m/%Y %H:%M') }} - {{ appointment.end_time.strftime('%H:%M') }}</div>
+      </div>
+      <div class="record-meta-card">
+        <div class="record-meta-label">Status atual</div>
+        <div class="record-meta-value">{{ appointment.status|capitalize }}</div>
+      </div>
+    </div>
+
+    <form class="inline-form" method="post" action="{{ url_for('core.appointment_record_save', appointment_id=appointment.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {% if appointment.notes %}
+      <div class="form-group">
+        <label>Observacao informada no agendamento</label>
+        <textarea readonly>{{ appointment.notes }}</textarea>
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label>Status do atendimento</label>
+        <select name="status" required {% if not can_edit %}disabled{% endif %}>
+          <option value="pendente" {% if appointment.status == 'pendente' %}selected{% endif %}>Pendente</option>
+          <option value="confirmado" {% if appointment.status == 'confirmado' %}selected{% endif %}>Confirmado</option>
+          <option value="realizado" {% if appointment.status == 'realizado' %}selected{% endif %}>Realizado</option>
+          <option value="cancelado" {% if appointment.status == 'cancelado' %}selected{% endif %}>Cancelado</option>
+        </select>
+      </div>
+
+      <!-- Seção: Coleta de informações clínicas -->
+      <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 14px; margin: 14px 0; background: var(--light-bg);">
+        <legend style="padding: 0 8px; font-weight: 700; color: var(--primary);">Informações Clínicas do Atendimento</legend>
+
+        <div class="form-group">
+          <label>Queixa principal</label>
+          <textarea name="chief_complaint" placeholder="Descreva a queixa ou demanda principal apresentada pelo(a) aluno(a)" {% if not can_edit %}readonly{% endif %}>{{ appointment.chief_complaint or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Qual é a principal questão ou dificuldade que o aluno está enfrentando?</small>
+        </div>
+
+        <div class="form-group">
+          <label>Comportamentos observados</label>
+          <textarea name="observed_behaviors" placeholder="Descreva os comportamentos, atitudes e linguagem corporal observados durante o atendimento" {% if not can_edit %}readonly{% endif %}>{{ appointment.observed_behaviors or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Anotações sobre postura, expressões faciais, tom de voz, contato visual, etc.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Estado emocional e fatores psicossociais</label>
+          <textarea name="emotional_state" placeholder="Descreva o estado emocional, relacionamentos, fatores familiares ou sociais relevantes" {% if not can_edit %}readonly{% endif %}>{{ appointment.emotional_state or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Aspectos emocionais, fatores de risco ou proteção, dinâmica familiar, relacionamentos com pares.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Impressão clínica</label>
+          <textarea name="clinical_impression" placeholder="Sua avaliação e interpretação baseada nos dados coletados neste atendimento" {% if not can_edit %}readonly{% endif %}>{{ appointment.clinical_impression or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Síntese da avaliação, hipóteses diagnósticas, impressões clínicas relevantes.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Recomendações</label>
+          <textarea name="recommendations" placeholder="Recomendações para o aluno, escola, família ou profissionais envolvidos" {% if not can_edit %}readonly{% endif %}>{{ appointment.recommendations or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Orientações, mudanças comportamentais, apoio escolar ou familiar recomendado.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Próximas ações e encaminhamentos</label>
+          <textarea name="next_steps" placeholder="Plano de ação, próximos atendimentos, encaminhamentos a outros profissionais ou serviços" {% if not can_edit %}readonly{% endif %}>{{ appointment.next_steps or '' }}</textarea>
+          <small style="color: var(--text-secondary);">Frequência de atendimentos, especialidades recomendadas, prazos de acompanhamento.</small>
+        </div>
+      </fieldset>
+
+      <!-- Seção: Observações gerais -->
+      <div class="form-group">
+        <label>Observações gerais (compatível com versões anteriores)</label>
+        <textarea name="psychologist_notes" placeholder="Anote pontos principais, encaminhamentos e observacoes finais" {% if not can_edit %}readonly{% endif %}>{{ appointment.psychologist_notes or '' }}</textarea>
+      </div>
+
+      <div class="record-actions">
+        {% if can_edit %}
+        <button class="btn btn-primary" type="submit">Salvar registro</button>
+        {% else %}
+        <button class="btn btn-outline" type="button" disabled>Atendimento finalizado</button>
+        {% endif %}
+        <a class="btn btn-outline" href="{{ url_for('core.psychologist_print_appointment', appointment_id=appointment.id) }}" target="_blank" rel="noopener">Abrir PDF do acompanhamento</a>
+        <a class="btn btn-outline" href="{{ url_for('core.psychologist_appointments') }}">Voltar para consultas</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Seção: Encaminhamentos -->
+  <div class="panel reveal" style="margin-top: 20px;">
+    <div class="panel-title">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+      Encaminhamentos
+    </div>
+
+    <!-- Lista de encaminhamentos existentes -->
+    {% if appointment.referrals %}
+    <div style="margin-bottom: 20px;">
+      <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Encaminhamentos Realizados</h3>
+      <div class="item-list">
+        {% for referral in appointment.referrals %}
+        <div class="item-card" style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start;">
+          <div>
+            <div class="item-card-title">{{ referral.referral_type|capitalize }} - {{ referral.professional_name or 'Profissional não especificado' }}</div>
+            {% if referral.institution %}<div class="item-card-meta">{{ referral.institution }}</div>{% endif %}
+            <div class="item-card-meta">{{ referral.reason[:100] }}{% if referral.reason|length > 100 %}...{% endif %}</div>
+            <div class="item-card-meta" style="margin-top: 6px; font-size: 12px;">
+              Data: {{ referral.referral_date.strftime('%d/%m/%Y') }}
+              | Prioridade: <span style="font-weight: 600; color: {% if referral.priority == 'urgente' %}#d32f2f{% elif referral.priority == 'normal' %}var(--primary){% else %}#757575{% endif %}">{{ referral.priority|capitalize }}</span>
+            </div>
+          </div>
+          <span class="item-card-badge badge-{{ referral.status }}">{{ referral.status|capitalize }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div style="padding: 14px; background: var(--light-bg); border-radius: 6px; color: var(--text-secondary); text-align: center;">
+      Nenhum encaminhamento realizado ainda.
+    </div>
+    {% endif %}
+
+    <!-- Formulário para criar novo encaminhamento -->
+    {% if can_edit %}
+    <form method="post" action="{{ url_for('core.create_referral', appointment_id=appointment.id) }}" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Criar Novo Encaminhamento</h3>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group" style="margin: 0;">
+          <label for="referral_type">Tipo de encaminhamento *</label>
+          <select name="referral_type" id="referral_type" required>
+            <option value="">Selecione...</option>
+            <option value="psiquiatra">Psiquiatra</option>
+            <option value="neurologista">Neurologista</option>
+            <option value="fonoaudiologa">Fonoaudióloga</option>
+            <option value="pediatra">Pediatra</option>
+            <option value="oftalmologista">Oftalmologista</option>
+            <option value="otorrinolaringologista">Otorrinolaringologista</option>
+            <option value="assistente_social">Assistente Social</option>
+            <option value="terapeuta_ocupacional">Terapeuta Ocupacional</option>
+            <option value="educacao_especial">Educação Especial</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label for="priority">Prioridade *</label>
+          <select name="priority" id="priority" required>
+            <option value="normal" selected>Normal</option>
+            <option value="urgente">Urgente</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group" style="margin: 0;">
+          <label for="professional_name">Nome do profissional</label>
+          <input type="text" name="professional_name" id="professional_name" placeholder="Ex: Dr. João Silva">
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label for="institution">Instituição/Clínica</label>
+          <input type="text" name="institution" id="institution" placeholder="Ex: Centro de Saúde Mental">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="reason">Motivo do encaminhamento *</label>
+        <textarea name="reason" id="reason" placeholder="Descreva o motivo e a necessidade do encaminhamento" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="observations">Observações adicionais</label>
+        <textarea name="observations" id="observations" placeholder="Informações complementares para o profissional que receberá o encaminhamento"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Criar encaminhamento</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

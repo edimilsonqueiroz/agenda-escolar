@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Relatorios Clinicos | Agenda Escolar{% endblock %}
+{% block page_title %}Relatorios Clinicos{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>Relatorios de Acompanhamento</h2>
+      <p>Emita relatorios de um aluno especifico ou de todos os alunos atendidos.</p>
+    </div>
+    <a class="btn btn-outline" href="{{ url_for('core.psychologist_print_reports', student_id=selected_student_id_raw) }}" target="_blank" rel="noopener">Abrir PDF do relatorio</a>
+  </div>
+
+  <div class="panel reveal delay-1" style="margin-bottom:16px;">
+    <form class="admin-filter-form" method="get" action="{{ url_for('core.psychologist_reports') }}">
+      <select name="student_id">
+        <option value="">Todos os alunos</option>
+        {% for student in students %}
+        <option value="{{ student.id }}" {% if selected_student and selected_student.id == student.id %}selected{% endif %}>
+          {{ student.full_name }}
+        </option>
+        {% endfor %}
+      </select>
+      <select name="per_page">
+        <option value="10" {% if appointments_per_page == 10 %}selected{% endif %}>10 por pagina</option>
+        <option value="12" {% if appointments_per_page == 12 %}selected{% endif %}>12 por pagina</option>
+        <option value="20" {% if appointments_per_page == 20 %}selected{% endif %}>20 por pagina</option>
+        <option value="50" {% if appointments_per_page == 50 %}selected{% endif %}>50 por pagina</option>
+      </select>
+      <button class="btn btn-primary" type="submit">Gerar relatorio</button>
+      {% if selected_student %}
+      <a href="{{ url_for('core.psychologist_reports', per_page=appointments_per_page) }}" class="btn btn-outline">Limpar filtro</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="stats-grid reveal delay-1">
+    <div class="stat-card">
+      <span class="stat-value">{{ status_counts.total }}</span>
+      <span class="stat-label">Total de acompanhamentos</span>
+    </div>
+    <div class="stat-card" style="border-top-color:#f59e0b;">
+      <span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span>
+      <span class="stat-label">Pendentes/confirmados</span>
+    </div>
+    <div class="stat-card" style="border-top-color:#10b981;">
+      <span class="stat-value">{{ status_counts.realizado }}</span>
+      <span class="stat-label">Realizados</span>
+    </div>
+    <div class="stat-card" style="border-top-color:#ef4444;">
+      <span class="stat-value">{{ status_counts.cancelado }}</span>
+      <span class="stat-label">Cancelados</span>
+    </div>
+  </div>
+
+  <div class="panel reveal delay-2" style="margin-top:16px;">
+    <div class="panel-title-row">
+      <h2>Resumo por aluno</h2>
+    </div>
+
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Aluno</th>
+            <th>Total</th>
+            <th>Realizados</th>
+            <th>Pendentes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in students_summary %}
+          <tr>
+            <td>{{ item.student.full_name }}</td>
+            <td>{{ item.total }}</td>
+            <td>{{ item.realizado }}</td>
+            <td>{{ item.pendente }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">Nenhum acompanhamento encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel reveal delay-2" style="margin-top:16px;">
+    <div class="panel-title-row">
+      <h2>Acompanhamentos detalhados ({{ appointments_total }})</h2>
+    </div>
+
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Data e horario</th>
+            <th>Aluno</th>
+            <th>Status</th>
+            <th>Observacao do aluno</th>
+            <th>Registro psicologico</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appointment in appointments %}
+          <tr>
+            <td>{{ appointment.start_time.strftime('%d/%m/%Y %H:%M') }} - {{ appointment.end_time.strftime('%H:%M') }}</td>
+            <td>{{ appointment.student.full_name }}</td>
+            <td><span class="badge-role badge-{{ appointment.status }}">{{ appointment.status|capitalize }}</span></td>
+            <td>{{ appointment.notes or '—' }}</td>
+            <td>{{ appointment.psychologist_notes or '—' }}</td>
+            <td class="action-cell">
+              <a class="btn btn-outline btn-sm" href="{{ url_for('core.appointment_record_page', appointment_id=appointment.id) }}">Detalhes</a>
+              <a class="btn btn-outline btn-sm" href="{{ url_for('core.psychologist_print_appointment', appointment_id=appointment.id) }}" target="_blank" rel="noopener">PDF</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">Nenhum acompanhamento encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% set total_pages = ((appointments_total + appointments_per_page - 1) // appointments_per_page) if appointments_per_page > 0 else 1 %}
+    {% if total_pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
+      {% if appointments_page > 1 %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_reports', student_id=selected_student_id_raw, page=appointments_page-1, per_page=appointments_per_page) }}">Anterior</a>
+      {% endif %}
+
+      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ appointments_page }} de {{ total_pages }}</span>
+
+      {% if appointments_page < total_pages %}
+      <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_reports', student_id=selected_student_id_raw, page=appointments_page+1, per_page=appointments_per_page) }}">Proxima</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Trabalhos da Semana | Agenda Escolar{% endblock %}
+{% block page_title %}Trabalhos da Semana{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>Agenda da Semana</h2>
+      <p>Entregas de {{ week_start.strftime('%d/%m/%Y') }} a {{ week_end.strftime('%d/%m/%Y') }}.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openNewAssignmentModal()">+ Novo Trabalho</button>
+  </div>
+
+  <!-- Navegação compacta -->
+  <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:18px">
+    <a class="wcal-nav-icon-btn" href="{{ url_for('core.professor_assignments', week=week_offset-1, classroom_id=sel_classroom) }}" title="Semana anterior">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <a class="wcal-nav-icon-btn {% if week_offset == 0 %}wcal-nav-icon-btn--active{% endif %}" href="{{ url_for('core.professor_assignments', week=0, classroom_id=sel_classroom) }}" title="Semana atual">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <a class="wcal-nav-icon-btn" href="{{ url_for('core.professor_assignments', week=week_offset+1, classroom_id=sel_classroom) }}" title="Próxima semana">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+  </div>
+
+  <!-- Filtro por turma -->
+  <div class="panel reveal delay-1" style="margin-bottom:16px">
+    <form class="admin-filter-form" method="get" action="{{ url_for('core.professor_assignments') }}">
+      <input type="hidden" name="week" value="{{ week_offset }}">
+      <select name="classroom_id">
+        <option value="">Todas as turmas</option>
+        {% for c in classrooms %}
+          <option value="{{ c.id }}" {% if sel_classroom == c.id|string %}selected{% endif %}>{{ c.name }} — {{ c.school_year }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      {% if sel_classroom %}
+        <a href="{{ url_for('core.professor_assignments', week=week_offset) }}" class="btn btn-outline">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Calendário semanal -->
+  <div class="week-calendar">
+    {% set day_names = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'] %}
+    {% for day in week_days %}
+    {% set is_today = (day == today) %}
+    {% set day_assignments = assignments_by_day.get(day, []) %}
+    <div class="week-col{% if is_today %} week-col--today{% endif %}">
+      <div class="week-col-header">
+        <span class="week-col-dayname">{{ day_names[loop.index0] }} {{ day.strftime('%d/%m') }}</span>
+      </div>
+      <div class="week-col-body">
+        {% if day_assignments %}
+          {% for a in day_assignments %}
+          {% set is_mine = (a.teacher_id == current_user.id) %}
+          {% if is_mine %}
+          <a href="{{ url_for('core.teacher_view_submissions', assignment_id=a.id) }}" class="wcal-card wcal-card--link" title="Ver submissões e avaliar">
+          {% else %}
+          <div class="wcal-card wcal-card--readonly">
+          {% endif %}
+            <div class="wcal-card-title">{{ a.title }}</div>
+            {% if a.subject %}<div class="wcal-card-subject">{{ a.subject }}</div>{% endif %}
+            <div class="wcal-card-turma">{{ a.classroom.name }}</div>
+            {% set sub_count = a.submissions|length %}
+            {% set pending_count = a.submissions | selectattr('status','equalto','pendente') | list | length %}
+            {% if is_mine and sub_count > 0 %}
+            <div class="wcal-card-badge-row">
+              <span class="wcal-card-badge">{{ sub_count }} entrega{{ 's' if sub_count != 1 else '' }}</span>
+              {% if pending_count > 0 %}<span class="wcal-card-badge wcal-card-badge--warn">{{ pending_count }} pendente{{ 's' if pending_count != 1 else '' }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if not is_mine %}
+            <div class="wcal-card-readonly-label">Prof.: {{ a.teacher.full_name }}</div>
+            {% endif %}
+          {% if is_mine %}
+          </a>
+          {% else %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="wcal-empty"></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<div id="modal-novo-trabalho" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
+  <div class="modal-card" style="max-width:540px;width:95%;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <!-- Cabeçalho fixo -->
+    <div style="padding:22px 28px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 id="assignment-modal-title" style="margin:0">Cadastrar Novo Trabalho</h3>
+    </div>
+    <form method="post" action="{{ url_for('core.create_assignment') }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+      <!-- Corpo rolável -->
+      <div style="flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Titulo <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="title" class="form-control" placeholder="Titulo do trabalho" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Disciplina <span style="color:var(--danger)">*</span></label>
+            <input type="text" name="subject" class="form-control" placeholder="Ex: Matematica, Historia..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data de entrega <span style="color:var(--danger)">*</span></label>
+            <input type="date" name="due_date" class="form-control" required id="due-date-input">
+          </div>
+        </div>
+        <div class="form-group" id="group-classroom">
+          <label class="form-label">Turma <span style="color:var(--danger)">*</span></label>
+          <select name="classroom_id" class="form-control" required>
+            <option value="">Selecione a turma</option>
+            {% for c in classrooms %}
+            <option value="{{ c.id }}">{{ c.name }} — {{ c.school_year }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de trabalho <span style="color:var(--danger)">*</span></label>
+          <div style="display:flex;gap:24px;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm)">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+              <input type="radio" name="work_type" value="individual" checked>
+              <span>Individual</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+              <input type="radio" name="work_type" value="group">
+              <span>Em grupo</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descricao <span style="color:var(--danger)">*</span></label>
+          <textarea name="description" class="form-control" rows="4" placeholder="Descricao detalhada do trabalho" required></textarea>
+        </div>
+        <div class="form-group" id="group-attachment">
+          <label class="form-label">Anexar PDFs (opcional, múltiplos)</label>
+          <div style="border:2px dashed var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center;cursor:pointer;transition:border-color .2s" onclick="document.getElementById('attach-pdf').click()" id="drop-zone">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="28" height="28" style="color:var(--text-muted);margin-bottom:6px"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"/></svg>
+            <div id="drop-label" style="font-size:.85rem;color:var(--text-muted)">Clique para selecionar PDFs (max. 10 MB cada)</div>
+          </div>
+          <input type="file" name="attachment" id="attach-pdf" accept=".pdf" multiple style="display:none" onchange="updateDropLabel(this)">
+          <div id="file-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
+        </div>
+      </div>
+      <!-- Rodapé fixo -->
+      <div style="padding:16px 28px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-outline" onclick="closeAssignmentModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="assignment-submit-btn">Cadastrar Trabalho</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const assignmentModal = document.getElementById('modal-novo-trabalho');
+const assignmentForm = assignmentModal.querySelector('form');
+const assignmentTitleInput = assignmentForm.querySelector('input[name="title"]');
+const assignmentSubjectInput = assignmentForm.querySelector('input[name="subject"]');
+const assignmentDueDateInput = assignmentForm.querySelector('input[name="due_date"]');
+const assignmentClassroomSelect = assignmentForm.querySelector('select[name="classroom_id"]');
+const assignmentDescriptionInput = assignmentForm.querySelector('textarea[name="description"]');
+const assignmentAttachmentInput = assignmentForm.querySelector('input[name="attachment"]');
+
+function closeAssignmentModal() {
+  assignmentModal.style.display = 'none';
+}
+
+function setAssignmentModalCreateMode() {
+  document.getElementById('assignment-modal-title').textContent = 'Cadastrar Novo Trabalho';
+  document.getElementById('assignment-submit-btn').textContent = 'Cadastrar Trabalho';
+  assignmentForm.action = "{{ url_for('core.create_assignment') }}";
+
+  assignmentTitleInput.readOnly = false;
+  assignmentSubjectInput.readOnly = false;
+  assignmentDescriptionInput.readOnly = false;
+  assignmentClassroomSelect.disabled = false;
+  assignmentAttachmentInput.disabled = false;
+  document.getElementById('group-attachment').style.display = '';
+
+  assignmentTitleInput.required = true;
+  assignmentSubjectInput.required = true;
+  assignmentDescriptionInput.required = true;
+  assignmentClassroomSelect.required = true;
+}
+
+function openNewAssignmentModal() {
+  setAssignmentModalCreateMode();
+  assignmentForm.reset();
+  // Impede selecionar data anterior a hoje
+  const today = new Date().toISOString().split('T')[0];
+  assignmentDueDateInput.min = today;
+  updateDropLabel(assignmentAttachmentInput);
+  assignmentModal.style.display = 'flex';
+}
+
+assignmentModal.addEventListener('click', function(e) {
+  if (e.target === this) closeAssignmentModal();
+});
+function updateDropLabel(input) {
+  const label = document.getElementById('drop-label');
+  const zone = document.getElementById('drop-zone');
+  const fileList = document.getElementById('file-list');
+  fileList.innerHTML = '';
+  if (input.files && input.files.length > 0) {
+    label.textContent = input.files.length + ' arquivo(s) selecionado(s)';
+    label.style.color = 'var(--primary)';
+    zone.style.borderColor = 'var(--primary)';
+    Array.from(input.files).forEach(function(f) {
+      const item = document.createElement('div');
+      item.style.cssText = 'font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:6px';
+      item.innerHTML = '📎 ' + f.name;
+      fileList.appendChild(item);
+    });
+  } else {
+    label.textContent = 'Clique para selecionar PDFs (max. 10 MB cada)';
+    label.style.color = 'var(--text-muted)';
+    zone.style.borderColor = 'var(--border)';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} | Agenda Escolar{% endblock %}
+{% block page_title %}{{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>{{ assignment.title }}</h2>
+      <p>Turma: <strong>{{ assignment.classroom.name }} - {{ assignment.classroom.school_year }}</strong></p>
+    </div>
+    <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline">← Voltar</a>
+  </div>
+
+  <!-- Informacoes do trabalho -->
+  <div class="panel reveal delay-1">
+    <div class="panel-title-row">
+      <h3>Informacoes</h3>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Professor</label>
+        <p style="margin:4px 0 0">{{ assignment.teacher.full_name }}</p>
+      </div>
+      <div>
+        <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Data de entrega</label>
+        <p style="margin:4px 0 0">{{ assignment.due_date.strftime('%d/%m/%Y') }}</p>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Descricao</label>
+      <p style="margin:8px 0 0;line-height:1.6">{{ assignment.description }}</p>
+    </div>
+  </div>
+
+  <!-- Status da submissao -->
+  {% if submission and not can_resubmit %}
+  {% if submission.status == 'aprovado' %}
+  <div class="panel reveal delay-2" style="background:var(--surface-2);border-left:4px solid var(--success)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--success)"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+      <div>
+        <div style="font-weight:700;color:var(--success)">Trabalho aprovado pelo professor!</div>
+        <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">Submetido em {{ submission.submitted_at.strftime('%d/%m/%Y às %H:%M') }}</div>
+      </div>
+    </div>
+    {% if submission.grade is not none %}
+    <div style="margin-top:10px;padding:10px 14px;background:var(--surface);border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:10px">
+      <span style="font-size:.85rem;color:var(--text-muted);font-weight:600">Nota:</span>
+      <span style="font-size:1.15rem;font-weight:700;color:var(--success)">{{ submission.grade }}</span>
+    </div>
+    {% endif %}
+    {% if submission.feedback %}
+    <div style="margin-top:10px;padding:10px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:.9rem;color:var(--text-muted)">
+      <strong style="color:var(--text)">Comentário do professor:</strong><br>
+      {{ submission.feedback }}
+    </div>
+    {% endif %}
+    {% if submission.is_group %}
+    <div style="margin-top:12px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Membros do grupo</label>
+      <ul style="margin:6px 0 0;padding-left:20px">
+        <li>{{ current_user.full_name }} (você)</li>
+        {% for member in submission.group_members %}
+        <li>{{ member.student.full_name }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div style="margin-top:12px;font-size:.9rem;color:var(--text-muted)">Trabalho individual</div>
+    {% endif %}
+    {% if submission.file_path %}
+    <div style="margin-top:12px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Arquivo anexado</label>
+      <div style="margin-top:6px">
+        <a href="{{ url_for('static', filename=submission.file_path) }}" target="_blank" class="btn btn-outline">
+          📥 Baixar PDF
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="panel reveal delay-2" style="background:var(--surface-2);border-left:4px solid var(--success)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="color:var(--success)"><polyline points="20 6 9 17 4 12"/></svg>
+      <strong>Trabalho submetido — aguardando avaliação</strong>
+    </div>
+    <div style="font-size:.9rem;color:var(--text-muted)">Submetido em {{ submission.submitted_at.strftime('%d/%m/%Y às %H:%M') }}</div>
+    {% if submission.is_group %}
+    <div style="margin-top:12px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Membros do grupo</label>
+      <ul style="margin:6px 0 0;padding-left:20px">
+        <li>{{ current_user.full_name }} (você)</li>
+        {% for member in submission.group_members %}
+        <li>{{ member.student.full_name }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div style="margin-top:12px;font-size:.9rem;color:var(--text-muted)">Trabalho individual</div>
+    {% endif %}
+    {% if submission.file_path %}
+    <div style="margin-top:12px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Arquivo anexado</label>
+      <div style="margin-top:6px">
+        <a href="{{ url_for('static', filename=submission.file_path) }}" target="_blank" class="btn btn-outline">
+          📥 Baixar PDF
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  {% if can_resubmit %}
+  <div class="panel reveal delay-2" style="border-left:4px solid var(--danger)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--danger);flex-shrink:0"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+      <div>
+        <div style="font-weight:700;color:var(--danger)">Trabalho devolvido para correção</div>
+        <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">Faça os ajustes e envie novamente.</div>
+      </div>
+    </div>
+    {% if submission.feedback %}
+    <div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:.9rem;color:var(--text-muted)">
+      <strong style="color:var(--text)">Comentário do professor:</strong><br>
+      {{ submission.feedback }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if overdue and not can_resubmit %}
+  <!-- Prazo encerrado -->
+  <div class="panel reveal delay-2" style="border-left:4px solid var(--danger)">
+    <div style="display:flex;align-items:center;gap:12px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div style="font-weight:700;color:var(--danger)">Prazo encerrado</div>
+        <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">A data de entrega foi {{ assignment.due_date.strftime('%d/%m/%Y') }} e não é mais possível submeter este trabalho.</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <!-- Formulario de submissao -->
+  <div class="panel reveal delay-2">
+    <div class="panel-title-row">
+      <h3>{{ 'Reenviar trabalho' if can_resubmit else 'Submeter trabalho' }}</h3>
+    </div>
+    <form method="post" action="{{ url_for('core.student_submit_assignment', assignment_id=assignment.id) }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {% if not can_resubmit %}
+      {% if assignment.work_type == 'individual' %}
+      {# Trabalho individual: sem escolha, campo oculto #}
+      <input type="hidden" name="work_type" value="individual">
+      <div style="margin-bottom:20px;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-md);font-size:.9rem;color:var(--text-muted)">
+        Este é um trabalho <strong>individual</strong>.
+      </div>
+      {% elif assignment.work_type == 'group' %}
+      {# Trabalho em grupo: sem escolha, campo oculto + seção de membros sempre visível #}
+      <input type="hidden" name="work_type" value="group">
+      <div style="margin-bottom:12px;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-md);font-size:.9rem;color:var(--text-muted)">
+        Este é um trabalho <strong>em grupo</strong>.
+      </div>
+      <div id="group-section" style="margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:var(--radius-md);border:2px solid var(--border)">
+        <label style="font-weight:600;margin-bottom:12px;display:block;font-size:0.95rem">Selecione os membros do grupo:</label>
+        {% if classmates|length > 1 %}
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;background:var(--surface);border-radius:var(--radius-sm);border-left:3px solid var(--primary);margin-bottom:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Você (membro do grupo):</div>
+            <div style="font-weight:600">{{ current_user.full_name }}</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">Adicionar outros membros:</div>
+            {% for classmate in classmates %}
+              {% if classmate.id != current_user.id %}
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;margin:0;border-radius:var(--radius-sm);transition:background 0.15s">
+                <input type="checkbox" name="group_members" value="{{ classmate.id }}" style="cursor:pointer;width:18px;height:18px">
+                <span style="flex:1">{{ classmate.full_name }}</span>
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div style="padding:12px;background:var(--surface);border-radius:var(--radius-sm);color:var(--text-muted);font-size:0.9rem;text-align:center">
+          <div style="margin-bottom:6px">⚠️ Você é o único aluno na turma</div>
+          <div style="font-size:0.85rem">Trabalho em grupo não é possível neste momento</div>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      {# Fallback: aluno escolhe (comportamento antigo) #}
+      <div style="display:flex;gap:20px;margin-bottom:20px;padding:12px;background:var(--surface-2);border-radius:var(--radius-md)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="radio" name="work_type" value="individual" checked onchange="toggleGroupFields()">
+          <span>Individual</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="radio" name="work_type" value="group" onchange="toggleGroupFields()">
+          <span>Em grupo</span>
+        </label>
+      </div>
+
+      <div id="group-section" style="display:none;margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:var(--radius-md);border:2px solid var(--border)">
+        <label style="font-weight:600;margin-bottom:12px;display:block;font-size:0.95rem">Selecione os membros do grupo:</label>
+        {% if classmates|length > 1 %}
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;background:var(--surface);border-radius:var(--radius-sm);border-left:3px solid var(--primary);margin-bottom:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Você (membro do grupo):</div>
+            <div style="font-weight:600">{{ current_user.full_name }}</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">Adicionar outros membros:</div>
+            {% for classmate in classmates %}
+              {% if classmate.id != current_user.id %}
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;margin:0;border-radius:var(--radius-sm);transition:background 0.15s;hover-background:var(--surface)">
+                <input type="checkbox" name="group_members" value="{{ classmate.id }}" style="cursor:pointer;width:18px;height:18px">
+                <span style="flex:1">{{ classmate.full_name }}</span>
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div style="padding:12px;background:var(--surface);border-radius:var(--radius-sm);color:var(--text-muted);font-size:0.9rem;text-align:center">
+          <div style="margin-bottom:6px">⚠️ Você é o único aluno na turma</div>
+          <div style="font-size:0.85rem">Trabalho em grupo não é possível neste momento</div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}{# /work_type #}
+      {% else %}
+      <div style="margin-bottom:16px;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:.9rem;color:var(--text-muted)">
+        O reenvio manterá o tipo original do trabalho (individual ou em grupo).
+      </div>
+      {% endif %}
+
+      <!-- Upload de arquivo -->
+      <div style="margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:var(--radius-md);border:1px dashed var(--border)">
+        <label style="font-weight:600;margin-bottom:8px;display:block;font-size:0.95rem">Anexar arquivo PDF (opcional)</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <input type="file" name="submission_file" accept=".pdf" id="file-input" style="display:none">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('file-input').click()">
+            Escolher arquivo
+          </button>
+          <span id="file-name" style="color:var(--text-muted);font-size:0.9rem">Nenhum arquivo selecionado</span>
+        </div>
+        <div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">
+          Formato: PDF • Tamanho máximo: 10 MB
+        </div>
+      </div>
+
+      <div class="modal-actions" style="padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-primary" type="submit">{{ 'Reenviar trabalho' if can_resubmit else 'Submeter trabalho' }}</button>
+        <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline">Cancelar</a>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const canResubmit = {{ 'true' if can_resubmit else 'false' }};
+
+  function toggleGroupFields() {
+    const workType = document.querySelector('input[name="work_type"]:checked').value;
+    const groupSection = document.getElementById('group-section');
+    groupSection.style.display = workType === 'group' ? '' : 'none';
+    
+    // Limpar checkboxes se voltar para individual
+    if (workType === 'individual') {
+      document.querySelectorAll('input[name="group_members"]').forEach(cb => cb.checked = false);
+    }
+  }
+
+  // Atualizar nome do arquivo quando selecionado
+  document.getElementById('file-input').addEventListener('change', (e) => {
+    const fileName = e.target.files[0]?.name || 'Nenhum arquivo selecionado';
+    document.getElementById('file-name').textContent = fileName;
+  });
+
+  // Interceptar submit para passar is_group como hidden
+  const submissionForm = document.querySelector('form');
+  if (submissionForm) {
+    submissionForm.addEventListener('submit', (e) => {
+      if (canResubmit) {
+        return;
+      }
+
+      const workType = document.querySelector('input[name="work_type"]:checked').value;
+
+      // Validação: se for grupo, precisa ter pelo menos um membro selecionado
+      if (workType === 'group') {
+        const selectedMembers = document.querySelectorAll('input[name="group_members"]:checked').length;
+        if (selectedMembers === 0) {
+          e.preventDefault();
+          alert('Selecione pelo menos um colega para formar o grupo.');
+          return false;
+        }
+      }
+
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'is_group';
+      input.value = workType === 'group' ? 'true' : 'false';
+      e.target.appendChild(input);
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} | Agenda Escolar{% endblock %}
+{% block page_title %}{{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>{{ assignment.title }}</h2>
+      <p>Turma: <strong>{{ assignment.classroom.name }} - {{ assignment.classroom.school_year }}</strong></p>
+    </div>
+    <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline">← Voltar</a>
+  </div>
+
+  <!-- Informações do trabalho -->
+  <div class="panel reveal delay-1">
+    <div class="panel-title-row">
+      <h3>Informações</h3>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Data de entrega</label>
+        <p style="margin:4px 0 0">{{ assignment.due_date.strftime('%d/%m/%Y') }}</p>
+      </div>
+      <div>
+        <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Criado em</label>
+        <p style="margin:4px 0 0">{{ assignment.created_at.strftime('%d/%m/%Y às %H:%M') }}</p>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <label style="font-size:.85rem;color:var(--text-muted);font-weight:600">Descrição</label>
+      <p style="margin:8px 0 0;line-height:1.6">{{ assignment.description }}</p>
+    </div>
+  </div>
+
+  <!-- Status das submissões -->
+  <div class="panel reveal delay-2">
+    <div class="panel-title-row">
+      <h3>Status das submissões</h3>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-md);text-align:center">
+        <div style="font-size:2rem;font-weight:700;color:var(--success)">{{ submissions_count }}</div>
+        <div style="font-size:.9rem;color:var(--text-muted)">Submissões recebidas</div>
+      </div>
+      <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-md);text-align:center">
+        <div style="font-size:2rem;font-weight:700;color:var(--warning)">{{ students_count - submissions_count }}</div>
+        <div style="font-size:.9rem;color:var(--text-muted)">Ainda não submeteram</div>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <a href="{{ url_for('core.teacher_view_submissions', assignment_id=assignment.id) }}" class="btn btn-primary">Ver submissões</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

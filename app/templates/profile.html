@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Meu Perfil | Agenda Escolar{% endblock %}
+{% block page_title %}Meu Perfil{% endblock %}
+
+{% block content %}
+<div class="reveal">
+  <div class="page-header">
+    <div>
+      <h2>Meu Perfil</h2>
+      <p>Edite suas informacoes pessoais e senha.</p>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <!-- Formulario de perfil -->
+    <div class="panel reveal delay-1">
+      <div class="panel-title">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
+        Informacoes Pessoais
+      </div>
+
+      <!-- Foto de Perfil -->
+      <div class="avatar-upload-section">
+        <div class="avatar-preview-wrap">
+          {% if user.avatar %}
+            <img id="avatar-preview-img" src="{{ url_for('static', filename='uploads/avatars/' + user.avatar) }}" alt="Foto de perfil" class="avatar-preview-img">
+          {% else %}
+            <div id="avatar-preview-initials" class="avatar-preview-initials">{{ user.full_name[0]|upper }}</div>
+            <img id="avatar-preview-img" src="" alt="Foto de perfil" class="avatar-preview-img" style="display:none;">
+          {% endif %}
+          <label for="avatar-file-input" class="avatar-upload-btn" title="Alterar foto">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/></svg>
+          </label>
+        </div>
+        <div class="avatar-upload-info">
+          <span class="avatar-upload-name" id="avatar-file-name">{{ user.full_name }}</span>
+          <span class="avatar-upload-hint">JPG, PNG, GIF ou WebP — max 2 MB</span>
+        </div>
+      </div>
+
+      <!-- Form upload foto (separado do form principal) -->
+      <form id="avatar-form" method="post" action="{{ url_for('core.upload_avatar') }}" enctype="multipart/form-data" style="display:none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" id="avatar-file-input" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp">
+      </form>
+
+      {% if user.avatar %}
+      <form method="post" action="{{ url_for('core.remove_avatar') }}" style="margin-bottom:16px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">Remover foto</button>
+      </form>
+      {% endif %}
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 18px">
+
+      <form method="post" action="{{ url_for('core.update_profile') }}" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input name="full_name" type="text" value="{{ user.full_name }}" required>
+        </div>
+
+        <div class="form-group">
+          <label>E-mail</label>
+          <input name="email" type="email" value="{{ user.email }}" required>
+        </div>
+
+        <div class="form-group">
+          <label>Papel na Plataforma</label>
+          <div style="padding: 9px 12px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border); color: var(--text);">
+            <span class="badge-role badge-{{ user.role }}">{{ user.role|capitalize }}</span>
+          </div>
+        </div>
+
+        {% if user.role == 'aluno' and user.classroom %}
+        <div class="form-group">
+          <label>Turma</label>
+          <div style="padding: 9px 12px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border); color: var(--text);">
+            {{ user.classroom.name }} — {{ user.classroom.school_year }}
+          </div>
+        </div>
+        {% endif %}
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:18px 0 14px">
+
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text);">Alterar Senha</h3>
+
+        <div class="form-group">
+          <label>Nova Senha (deixe em branco para nao alterar)</label>
+          <input name="new_password" type="password" minlength="6" placeholder="••••••••">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">
+            ℹ️ Minimo de 6 caracteres. Deixe em branco para manter a senha atual.
+          </label>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Salvar Alteracoes</button>
+      </form>
+    </div>
+
+    <!-- Informacoes da conta -->
+    <div class="panel reveal delay-2">
+      <div class="panel-title">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        Informacoes da Conta
+      </div>
+
+      <div style="display:grid;gap:12px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">ID</div>
+          <div style="font-size:14px;color:var(--text);">#{{ user.id }}</div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Status</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="badge-status {% if user.is_active_user %}badge-active{% else %}badge-inactive{% endif %}">
+              {{ "Ativo" if user.is_active_user else "Inativo" }}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Cadastrado em</div>
+          <div style="font-size:14px;color:var(--text);">{{ user.created_at.strftime('%d/%m/%Y às %H:%M') }}</div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Ultima Atualizacao</div>
+          <div style="font-size:14px;color:var(--text);">{{ user.updated_at.strftime('%d/%m/%Y às %H:%M') }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const fileInput = document.getElementById('avatar-file-input');
+  const avatarForm = document.getElementById('avatar-form');
+  const previewImg = document.getElementById('avatar-preview-img');
+  const previewInitials = document.getElementById('avatar-preview-initials');
+  const fileName = document.getElementById('avatar-file-name');
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Imagem muito grande. Limite: 2 MB.');
+        this.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        previewImg.src = e.target.result;
+        previewImg.style.display = 'block';
+        if (previewInitials) previewInitials.style.display = 'none';
+        if (fileName) fileName.textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+      // Enviar automaticamente após selecionar
+      avatarForm.submit();
+    });
+  }
+})();
+</script>
+{% endblock %}

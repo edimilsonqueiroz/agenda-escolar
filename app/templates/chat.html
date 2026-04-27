@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Chat ao Vivo | Agenda Escolar{% endblock %}
+{% block page_title %}Chat ao Vivo{% endblock %}
+
+{% block content %}
+<div class="chat-page reveal">
+  <div class="chat-page-sidebar">
+    <div class="chat-sidebar-tabs">
+      <button class="chat-tab-btn chat-tab-btn--active" data-tab="online" title="Usuários online">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Online</span>
+      </button>
+      <button class="chat-tab-btn" data-tab="dms" title="Mensagens diretas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Conversas</span>
+      </button>
+    </div>
+
+    <div id="chat-online-panel" class="chat-sidebar-panel chat-sidebar-panel--active">
+      <div class="chat-sidebar-header">Online agora</div>
+      <ul id="online-users" class="online-list"></ul>
+    </div>
+    <div id="chat-dms-panel" class="chat-sidebar-panel">
+      <div class="chat-sidebar-header">Conversas</div>
+      <ul id="dm-list" class="dm-list"></ul>
+    </div>
+  </div>
+
+  <div class="chat-page-main">
+    <div class="chat-page-topbar">
+      <h3 id="chat-title">Chat ao Vivo</h3>
+      <button id="chat-back-btn" class="btn btn-outline btn-sm" style="display:none;" type="button">
+        ← Voltar ao geral
+      </button>
+    </div>
+    <div id="chat-messages" class="chat-messages chat-messages--page"></div>
+    <form id="chat-form" class="chat-form">
+      <input id="chat-input" maxlength="1000" placeholder="Escreva uma mensagem..." required autocomplete="off">
+      <button class="btn btn-primary" type="submit">Enviar</button>
+    </form>
+    <input type="hidden" id="current-dm-recipient" value="">
+  </div>
+</div>
+{% endblock %}
