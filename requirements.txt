@@ -11,3 +11,9 @@ email-validator
 psycopg[binary]
 reportlab
 Pillow
+# Produção
+gunicorn
+gevent
+gevent-websocket
+pytest
+pytest-flask
