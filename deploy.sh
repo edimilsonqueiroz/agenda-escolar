@@ -3,16 +3,22 @@
 #  deploy.sh — Implantação do Agenda Escolar em VPS Ubuntu 22.04 / 24.04
 #
 #  USO:
-#    1. Faça upload deste arquivo para o VPS:
-#         scp deploy.sh usuario@ip-do-vps:~/
-#    2. Execute como root (ou com sudo):
+#    1. No VPS, clone o repositório:
+#         git clone https://github.com/edimilsonqueiroz/agenda-escolar.git
+#         cd agenda-escolar
+#    2. Edite deploy.conf com seu domínio/IP e configurações
+#    3. Execute como root:
 #         sudo bash deploy.sh
+#
+#  Para atualizar o app no futuro, basta rodar deploy.sh novamente.
 # =============================================================================
 
 set -euo pipefail
 IFS=$'\n\t'
 
-# --- Cores ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Cores e helpers
+# ---------------------------------------------------------------------------
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
 
@@ -22,61 +28,41 @@ warn()    { echo -e "${YELLOW}[AVISO]${NC} $*"; }
 die()     { echo -e "${RED}[ERRO]${NC}  $*" >&2; exit 1; }
 section() { echo -e "\n${BOLD}━━━ $* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
-# --- Verificação de root --------------------------------------------------
+# ---------------------------------------------------------------------------
+# Verificação de root
+# ---------------------------------------------------------------------------
 [[ $EUID -eq 0 ]] || die "Execute como root: sudo bash deploy.sh"
 
 # =============================================================================
-#  CONFIGURAÇÃO INTERATIVA
+#  LEITURA DA CONFIGURAÇÃO
 # =============================================================================
-section "Configuração do deploy"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONF_FILE="${SCRIPT_DIR}/deploy.conf"
+[[ -f "$CONF_FILE" ]] || die "Arquivo deploy.conf não encontrado em ${SCRIPT_DIR}/"
 
-# Repositório Git
-read -rp "$(echo -e "${BOLD}URL do repositório Git${NC} (ex: https://github.com/usuario/agenda-escolar.git): ")" GIT_REPO
-[[ -n "$GIT_REPO" ]] || die "Repositório obrigatório."
+# shellcheck source=/dev/null
+source "$CONF_FILE"
 
-# Diretório de destino
-read -rp "$(echo -e "${BOLD}Diretório de instalação${NC} [/opt/agenda_escolar]: ")" APP_DIR
-APP_DIR="${APP_DIR:-/opt/agenda_escolar}"
+# Validações
+[[ -n "${GIT_REPO:-}"    ]] || die "GIT_REPO não definido no deploy.conf"
+[[ -n "${SERVER_NAME:-}" ]] || die "SERVER_NAME não definido no deploy.conf"
+[[ "$SERVER_NAME" != "SEU_DOMINIO_AQUI" ]] || \
+    die "Edite SERVER_NAME no deploy.conf com seu domínio ou IP antes de continuar."
 
-# Usuário do sistema que vai rodar a app
-read -rp "$(echo -e "${BOLD}Usuário do sistema para a app${NC} [agenda]: ")" APP_USER
-APP_USER="${APP_USER:-agenda}"
+USE_SSL="${USE_SSL,,}"
 
-# Domínio / IP público
-read -rp "$(echo -e "${BOLD}Domínio ou IP do servidor${NC} (ex: escola.com.br ou 203.0.113.10): ")" SERVER_NAME
-[[ -n "$SERVER_NAME" ]] || die "Domínio/IP obrigatório."
-
-# Porta interna do Gunicorn
-read -rp "$(echo -e "${BOLD}Porta interna do Gunicorn${NC} [8000]: ")" GUNICORN_PORT
-GUNICORN_PORT="${GUNICORN_PORT:-8000}"
-
-# Banco de dados (deixe em branco para usar SQLite)
-echo ""
-echo "Banco de dados:"
-echo "  • Deixe em BRANCO para usar SQLite (simples, recomendado para começo)"
-echo "  • Ou informe uma URL PostgreSQL: postgresql://usuario:senha@host/banco"
-read -rp "$(echo -e "${BOLD}DATABASE_URL${NC} [SQLite]: ")" DATABASE_URL
-
-# Chave secreta Flask
-echo ""
-info "Gerando SECRET_KEY aleatória..."
-SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-echo -e "  SECRET_KEY gerada: ${YELLOW}${SECRET_KEY}${NC}"
-echo "  (Guarde esta chave — ela protege as sessões de usuário)"
-
-# E-mail para notificações (opcional)
-read -rp "$(echo -e "\n${BOLD}E-mail SMTP — servidor${NC} [deixe em branco para desabilitar]: ")" MAIL_SERVER
-if [[ -n "$MAIL_SERVER" ]]; then
-    read -rp "$(echo -e "${BOLD}E-mail SMTP — porta${NC} [587]: ")" MAIL_PORT
-    MAIL_PORT="${MAIL_PORT:-587}"
-    read -rp "$(echo -e "${BOLD}E-mail SMTP — usuário${NC}: ")" MAIL_USERNAME
-    read -rsp "$(echo -e "${BOLD}E-mail SMTP — senha${NC}: ")" MAIL_PASSWORD; echo
-    read -rp "$(echo -e "${BOLD}E-mail SMTP — remetente${NC} (ex: noreply@escola.com.br): ")" MAIL_DEFAULT_SENDER
+# Gera SECRET_KEY se não definida
+if [[ -z "${SECRET_KEY:-}" ]]; then
+    SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 fi
 
-# HTTPS com Certbot?
-read -rp "$(echo -e "\n${BOLD}Instalar certificado SSL/HTTPS com Certbot?${NC} (s/N): ")" USE_SSL
-USE_SSL="${USE_SSL,,}"
+section "Configuração"
+info "Repositório : ${GIT_REPO}"
+info "Domínio/IP  : ${SERVER_NAME}"
+info "Diretório   : ${APP_DIR}"
+info "Usuário     : ${APP_USER}"
+info "Banco       : $( [[ -z "${DATABASE_URL:-}" ]] && echo 'SQLite' || echo 'PostgreSQL' )"
+info "SSL         : ${USE_SSL}"
 
 # =============================================================================
 #  1. DEPENDÊNCIAS DO SISTEMA
@@ -87,13 +73,11 @@ apt-get update -q
 apt-get install -y -q \
     python3 python3-pip python3-venv python3-dev \
     nginx git curl build-essential \
-    libpq-dev libssl-dev libffi-dev \
-    supervisor
+    libpq-dev libssl-dev libffi-dev
 
-ok "Dependências instaladas"
+ok "Pacotes instalados"
 
-# Certbot (se pedido)
-if [[ "$USE_SSL" == "s" ]]; then
+if [[ "$USE_SSL" == "sim" ]]; then
     apt-get install -y -q certbot python3-certbot-nginx
     ok "Certbot instalado"
 fi
@@ -111,23 +95,20 @@ else
 fi
 
 # =============================================================================
-#  3. DIRETÓRIO E CÓDIGO-FONTE
+#  3. CÓDIGO-FONTE
 # =============================================================================
 section "3. Código-fonte"
 
-if [[ -d "$APP_DIR/.git" ]]; then
-    warn "Repositório já existe — atualizando com git pull..."
-    sudo -u "$APP_USER" git -C "$APP_DIR" pull --rebase origin main || \
-        git -C "$APP_DIR" pull --rebase origin main
+if [[ -d "${APP_DIR}/.git" ]]; then
+    warn "Repositório já existe — atualizando..."
+    git -C "$APP_DIR" pull --rebase origin main
     ok "Código atualizado"
 else
-    info "Clonando repositório em ${APP_DIR}..."
     git clone "$GIT_REPO" "$APP_DIR"
-    chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
     ok "Repositório clonado"
 fi
 
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
+chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
 
 # =============================================================================
 #  4. AMBIENTE VIRTUAL PYTHON
@@ -148,27 +129,30 @@ ok "Dependências Python instaladas"
 # =============================================================================
 #  5. ARQUIVO .env DE PRODUÇÃO
 # =============================================================================
-section "5. Configuração de ambiente (.env)"
+section "5. Arquivo .env"
 
 ENV_FILE="${APP_DIR}/.env"
 
-# Determina a URL do banco
-if [[ -z "$DATABASE_URL" ]]; then
-    DB_LINE="# DATABASE_URL não definida — usando SQLite"
-    DB_URI_LINE=""
+# Preserva SECRET_KEY se o .env já existir (evita invalidar sessões)
+if [[ -f "$ENV_FILE" ]]; then
+    EXISTING_KEY="$(grep '^SECRET_KEY=' "$ENV_FILE" | cut -d= -f2 || true)"
+    [[ -n "$EXISTING_KEY" ]] && SECRET_KEY="$EXISTING_KEY"
+fi
+
+if [[ -n "${DATABASE_URL:-}" ]]; then
+    DB_BLOCK="DATABASE_URL=${DATABASE_URL}
+PRODUCTION_DATABASE_URL=${DATABASE_URL}"
 else
-    DB_LINE="DATABASE_URL=${DATABASE_URL}"
-    DB_URI_LINE="PRODUCTION_DATABASE_URL=${DATABASE_URL}"
+    DB_BLOCK="# DATABASE_URL vazia — usando SQLite"
 fi
 
 cat > "$ENV_FILE" <<EOF
-# Gerado automaticamente por deploy.sh — $(date)
+# Gerado por deploy.sh em $(date '+%Y-%m-%d %H:%M')
 FLASK_ENV=production
 SECRET_KEY=${SECRET_KEY}
 
 # Banco de dados
-${DB_LINE}
-${DB_URI_LINE}
+${DB_BLOCK}
 
 # E-mail (opcional)
 MAIL_SERVER=${MAIL_SERVER:-}
@@ -177,12 +161,12 @@ MAIL_USERNAME=${MAIL_USERNAME:-}
 MAIL_PASSWORD=${MAIL_PASSWORD:-}
 MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER:-}
 
-# WebSocket — restrinja em produção se quiser
-ALLOWED_SOCKET_ORIGINS=*
+# WebSocket — origens permitidas
+ALLOWED_SOCKET_ORIGINS=https://${SERVER_NAME},http://${SERVER_NAME}
 EOF
 
 chmod 600 "$ENV_FILE"
-chown "$APP_USER":"$APP_USER" "$ENV_FILE"
+chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 ok ".env criado em ${ENV_FILE}"
 
 # =============================================================================
@@ -190,49 +174,60 @@ ok ".env criado em ${ENV_FILE}"
 # =============================================================================
 section "6. Banco de dados"
 
-FLASK="${VENV_DIR}/bin/flask"
 cd "$APP_DIR"
 
+run_flask() {
+    sudo -u "$APP_USER" \
+        env $(grep -v '^#' "$ENV_FILE" | grep '=' | xargs) \
+        FLASK_APP=run.py \
+        "${VENV_DIR}/bin/flask" "$@"
+}
+
+run_python() {
+    sudo -u "$APP_USER" \
+        env $(grep -v '^#' "$ENV_FILE" | grep '=' | xargs) \
+        "${VENV_DIR}/bin/python" "$@"
+}
+
 info "Aplicando migrações..."
-sudo -u "$APP_USER" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-    FLASK_APP=run.py "$FLASK" db upgrade
+run_flask db upgrade
 ok "Migrações aplicadas"
 
-# Seed apenas na primeira instalação (sem usuário admin)
-ADMIN_EXISTS=$(sudo -u "$APP_USER" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-    "${VENV_DIR}/bin/python" -c "
-from app import create_app
-from app.models import User
+ADMIN_EXISTS=$(run_python -c "
+from app import create_app; from app.models import User
 app = create_app()
 with app.app_context():
     print('1' if User.query.filter_by(role='admin').first() else '0')
 " 2>/dev/null || echo "0")
 
 if [[ "$ADMIN_EXISTS" == "0" ]]; then
-    info "Executando seed inicial (usuários de demonstração)..."
-    sudo -u "$APP_USER" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-        FLASK_APP=run.py "$FLASK" seed
+    info "Executando seed inicial..."
+    run_flask seed
     ok "Seed executado"
     echo ""
-    warn "Usuários criados:"
-    warn "  admin@escola.local   senha: 123456  (TROQUE A SENHA APÓS O PRIMEIRO LOGIN)"
-    warn "  prof@escola.local    senha: 123456"
-    warn "  aluno@escola.local   senha: 123456"
-    warn "  psi@escola.local     senha: 123456"
+    warn "┌─────────────────────────────────────────────────────┐"
+    warn "│ Usuários criados — TROQUE AS SENHAS APÓS O LOGIN    │"
+    warn "│                                                     │"
+    warn "│  admin@escola.local  →  123456  (administrador)     │"
+    warn "│  prof@escola.local   →  123456  (professor)         │"
+    warn "│  aluno@escola.local  →  123456  (aluno)             │"
+    warn "│  psi@escola.local    →  123456  (psicólogo)         │"
+    warn "└─────────────────────────────────────────────────────┘"
 else
-    info "Banco já possui usuários — seed ignorado"
+    info "Banco já tem usuários — seed ignorado"
 fi
 
 # =============================================================================
-#  7. GUNICORN — SERVIÇO SYSTEMD
+#  7. SERVIÇO SYSTEMD (GUNICORN)
 # =============================================================================
-section "7. Serviço systemd (Gunicorn)"
+section "7. Serviço systemd"
 
-SERVICE_FILE="/etc/systemd/system/agenda_escolar.service"
+mkdir -p /var/log/agenda_escolar
+chown "${APP_USER}:${APP_USER}" /var/log/agenda_escolar
 
-cat > "$SERVICE_FILE" <<EOF
+cat > /etc/systemd/system/agenda_escolar.service <<EOF
 [Unit]
-Description=Agenda Escolar — Gunicorn/Gevent
+Description=Agenda Escolar — Gunicorn + Gevent
 After=network.target
 
 [Service]
@@ -241,16 +236,16 @@ User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
-Environment="FLASK_APP=run.py"
-ExecStart=${VENV_DIR}/bin/gunicorn \
-    --worker-class gevent \
-    --workers 1 \
-    --threads 1000 \
-    --bind 127.0.0.1:${GUNICORN_PORT} \
-    --timeout 120 \
-    --keep-alive 5 \
-    --access-logfile /var/log/agenda_escolar/access.log \
-    --error-logfile /var/log/agenda_escolar/error.log \
+Environment=FLASK_APP=run.py
+ExecStart=${VENV_DIR}/bin/gunicorn \\
+    --worker-class gevent \\
+    --workers 1 \\
+    --threads 1000 \\
+    --bind 127.0.0.1:${GUNICORN_PORT} \\
+    --timeout 120 \\
+    --keep-alive 5 \\
+    --access-logfile /var/log/agenda_escolar/access.log \\
+    --error-logfile  /var/log/agenda_escolar/error.log \\
     wsgi:app
 ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
@@ -263,13 +258,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-mkdir -p /var/log/agenda_escolar
-chown "$APP_USER":"$APP_USER" /var/log/agenda_escolar
-
 systemctl daemon-reload
 systemctl enable agenda_escolar
 systemctl restart agenda_escolar
-ok "Serviço agenda_escolar iniciado"
+ok "Serviço agenda_escolar ativo"
 
 # =============================================================================
 #  8. NGINX — PROXY REVERSO
@@ -287,23 +279,26 @@ server {
     listen 80;
     server_name ${SERVER_NAME};
 
-    # Tamanho máximo de upload (avatares, anexos)
     client_max_body_size 16M;
 
-    # Arquivos estáticos diretamente pelo Nginx
+    # Estáticos servidos diretamente pelo Nginx (mais rápido)
     location /static/ {
         alias ${APP_DIR}/app/static/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
-    # Uploads de usuários
-    location /uploads/ {
+    location /static/uploads/ {
         alias ${APP_DIR}/app/static/uploads/;
         expires 7d;
     }
 
-    # WebSocket — Socket.IO
+    location /static/submissions/ {
+        alias ${APP_DIR}/app/static/submissions/;
+        expires 7d;
+    }
+
+    # WebSocket — Socket.IO precisa de upgrade HTTP
     location /socket.io/ {
         proxy_pass         http://agenda_app;
         proxy_http_version 1.1;
@@ -329,26 +324,24 @@ server {
 }
 EOF
 
-# Ativa o site e remove default se existir
 ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/agenda_escolar
 rm -f /etc/nginx/sites-enabled/default
 
-nginx -t && systemctl reload nginx
-ok "Nginx configurado e recarregado"
+nginx -t
+systemctl reload nginx
+ok "Nginx configurado"
 
 # =============================================================================
-#  9. SSL COM CERTBOT (opcional)
+#  9. HTTPS COM CERTBOT (opcional)
 # =============================================================================
-if [[ "$USE_SSL" == "s" ]]; then
-    section "9. Certificado SSL"
+if [[ "$USE_SSL" == "sim" ]]; then
+    section "9. Certificado SSL (Let's Encrypt)"
 
-    # Precisa de domínio real (não funciona com IP)
     if [[ "$SERVER_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        warn "SSL ignorado — informe um domínio real (não IP) para usar Certbot."
+        warn "SSL pulado — Certbot exige domínio, não IP."
+    elif [[ -z "${CERTBOT_EMAIL:-}" ]]; then
+        warn "SSL pulado — defina CERTBOT_EMAIL no deploy.conf."
     else
-        read -rp "$(echo -e "${BOLD}E-mail para o Certbot${NC}: ")" CERTBOT_EMAIL
-        [[ -n "$CERTBOT_EMAIL" ]] || die "E-mail obrigatório para Certbot."
-
         certbot --nginx \
             -d "$SERVER_NAME" \
             --email "$CERTBOT_EMAIL" \
@@ -356,30 +349,33 @@ if [[ "$USE_SSL" == "s" ]]; then
 
         # Renovação automática
         systemctl enable certbot.timer 2>/dev/null || \
-            (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet") | crontab -
+            { crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet"; } | crontab -
 
-        ok "Certificado SSL instalado e renovação automática configurada"
+        ok "Certificado SSL instalado; renovação automática configurada"
     fi
 fi
 
 # =============================================================================
-#  RESUMO FINAL
+#  RESUMO
 # =============================================================================
 section "Deploy concluído"
 
 echo ""
 ok "Agenda Escolar está no ar!"
 echo ""
-echo -e "  ${BOLD}URL:${NC}       http://${SERVER_NAME}$( [[ "$USE_SSL" == "s" ]] && echo " (e https://)" || true )"
-echo -e "  ${BOLD}App dir:${NC}   ${APP_DIR}"
-echo -e "  ${BOLD}Logs:${NC}      /var/log/agenda_escolar/"
-echo -e "  ${BOLD}Serviço:${NC}   systemctl status agenda_escolar"
+echo -e "  ${BOLD}URL:${NC}      http://${SERVER_NAME}$( [[ "$USE_SSL" == "sim" ]] && echo "  +  https://${SERVER_NAME}" || echo "" )"
+echo -e "  ${BOLD}App:${NC}      ${APP_DIR}"
+echo -e "  ${BOLD}Logs:${NC}     /var/log/agenda_escolar/"
+echo -e "  ${BOLD}Config:${NC}   ${ENV_FILE}"
 echo ""
 echo -e "  ${BOLD}Comandos úteis:${NC}"
-echo -e "    Reiniciar app:   ${YELLOW}systemctl restart agenda_escolar${NC}"
-echo -e "    Ver logs:        ${YELLOW}journalctl -u agenda_escolar -f${NC}"
-echo -e "    Atualizar app:   ${YELLOW}cd ${APP_DIR} && git pull && systemctl restart agenda_escolar${NC}"
+echo -e "    Ver status:  ${YELLOW}systemctl status agenda_escolar${NC}"
+echo -e "    Ver logs:    ${YELLOW}journalctl -u agenda_escolar -f${NC}"
+echo -e "    Reiniciar:   ${YELLOW}systemctl restart agenda_escolar${NC}"
+echo -e "    Atualizar:   ${YELLOW}cd ${APP_DIR} && git pull && systemctl restart agenda_escolar${NC}"
 echo ""
-if [[ "$ADMIN_EXISTS" == "0" ]]; then
-    warn "IMPORTANTE: Faça login com admin@escola.local / 123456 e troque a senha imediatamente!"
+if [[ "$USE_SSL" != "sim" ]]; then
+    echo -e "  ${YELLOW}Quando o domínio estiver apontando para este servidor:${NC}"
+    echo -e "    1. Edite ${BOLD}deploy.conf${NC}: mude USE_SSL=\"sim\" e preencha CERTBOT_EMAIL"
+    echo -e "    2. Execute novamente: ${YELLOW}sudo bash deploy.sh${NC}"
 fi
