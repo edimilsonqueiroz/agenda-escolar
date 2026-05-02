@@ -15,10 +15,15 @@ depends_on = None
 
 
 def upgrade():
-    # Use the current connection to update NULLs before the batch recreation
+    # Add the column first (nullable to allow filling existing rows)
+    with op.batch_alter_table("assignments") as batch_op:
+        batch_op.add_column(sa.Column("is_finished", sa.Boolean(), nullable=True))
+
+    # Fill existing rows
     conn = op.get_bind()
     conn.execute(sa.text("UPDATE assignments SET is_finished = 0 WHERE is_finished IS NULL"))
 
+    # Make it NOT NULL
     with op.batch_alter_table("assignments") as batch_op:
         batch_op.alter_column(
             "is_finished",
