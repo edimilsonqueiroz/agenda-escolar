@@ -1,7 +1,7 @@
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, g, jsonify, redirect, url_for
 from flask_login import current_user
 from sqlalchemy.exc import OperationalError
 
@@ -23,7 +23,7 @@ def to_brasilia_datetime(value):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 def create_app():
@@ -83,8 +83,12 @@ def register_hooks(app):
     def inject_notifications():
         """Injeta contagem de notificações não lidas para todos os templates."""
         if current_user.is_authenticated:
+            if hasattr(g, "notification_count"):
+                return {"notification_count": g.notification_count}
+
             from .models import Notification
             count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+            g.notification_count = count
             return {"notification_count": count}
         return {"notification_count": 0}
 

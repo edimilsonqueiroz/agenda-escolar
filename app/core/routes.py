@@ -5,6 +5,7 @@ from io import BytesIO
 
 from datetime import datetime, timedelta
 from collections import defaultdict
+from sqlalchemy import case, func
 from werkzeug.utils import secure_filename
 from sqlalchemy.orm import joinedload
 from reportlab.lib.pagesizes import A4
@@ -12,11 +13,11 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors as rl_colors
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for, current_app, abort
+from flask import Blueprint, flash, redirect, render_template, request, url_for, current_app, abort, g
 from flask_login import current_user, login_required
 
 from ..extensions import db, limiter
-from ..models import Appointment, Assignment, AssignmentAttachment, Classroom, Notification, PsychologistAvailability, User, Submission, SubmissionGroupMember, SubmissionHistoryEvent, Referral
+from ..models import Appointment, Assignment, AssignmentAttachment, ChatMessage, Classroom, Notification, PsychologistAvailability, User, Submission, SubmissionGroupMember, SubmissionHistoryEvent, Referral
 from ..security import roles_required
 from ..constants import APPOINTMENT_SLOT_MINUTES, AppointmentStatus, UserRole
 
@@ -421,6 +422,58 @@ def parse_psychologist_availabilities(form):
     return rows
 
 
+def parse_optional_classroom_id(raw_value, *, allow_blank=True):
+    value = (raw_value or "").strip()
+    if not value:
+        if allow_blank:
+            return None
+        raise ValueError("Selecione uma turma valida.")
+
+    try:
+        classroom_id = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Selecione uma turma valida.") from exc
+
+    classroom = db.session.get(Classroom, classroom_id)
+    if classroom is None:
+        raise ValueError("Selecione uma turma valida.")
+
+    return classroom.id
+
+
+def parse_optional_positive_int(raw_value):
+    value = (raw_value or "").strip()
+    if not value or not value.isdigit():
+        return None
+    parsed_value = int(value)
+    return parsed_value if parsed_value > 0 else None
+
+
+def sync_teaching_classrooms(user, teaching_classroom_ids):
+    user.teaching_classrooms.clear()
+
+    for classroom_id_str in teaching_classroom_ids:
+        classroom_id = parse_optional_classroom_id(classroom_id_str, allow_blank=False)
+        classroom = db.session.get(Classroom, classroom_id)
+        user.teaching_classrooms.append(classroom)
+
+
+def replace_psychologist_availabilities(user, availabilities_payload):
+    PsychologistAvailability.query.filter_by(psychologist_id=user.id).delete()
+    db.session.flush()
+
+    for row in availabilities_payload:
+        user.availabilities.append(
+            PsychologistAvailability(
+                weekday=row["weekday"],
+                period=row["period"],
+                start_time=row["start_time"],
+                end_time=row["end_time"],
+                is_active=True,
+            )
+        )
+
+
 def _read_pagination_params(default_per_page: int = 12, max_per_page: int = 100):
     """Le parametros de paginacao com limites seguros."""
     page = request.args.get("page", 1, type=int)
@@ -448,6 +501,51 @@ def is_datetime_within_psychologist_schedule(psychologist_id, start_dt, end_dt):
             return True
 
     return False
+
+
+def build_admin_dashboard_stats(cutoff):
+    user_counts_row = db.session.query(
+        func.count(User.id),
+        func.coalesce(func.sum(case((User.role == "admin", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.role == "professor", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.role == "aluno", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.role == "psicologo", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.is_active_user.is_(False), 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.created_at >= cutoff, 1), else_=0)), 0),
+    ).one()
+
+    assignment_counts_row = db.session.query(
+        func.count(Assignment.id),
+        func.coalesce(func.sum(case((Assignment.created_at >= cutoff, 1), else_=0)), 0),
+    ).one()
+
+    appointment_counts_row = db.session.query(
+        func.count(Appointment.id),
+        func.coalesce(func.sum(case((Appointment.status == "pendente", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((Appointment.status == "realizado", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((Appointment.status == "cancelado", 1), else_=0)), 0),
+        func.coalesce(func.sum(case((Appointment.created_at >= cutoff, 1), else_=0)), 0),
+    ).one()
+
+    return {
+        "total_users": user_counts_row[0],
+        "total_admins": user_counts_row[1],
+        "total_professores": user_counts_row[2],
+        "total_alunos": user_counts_row[3],
+        "total_psicologos": user_counts_row[4],
+        "total_inativos": user_counts_row[5],
+        "novos_usuarios": user_counts_row[6],
+        "total_assignments": assignment_counts_row[0],
+        "novos_trabalhos": assignment_counts_row[1],
+        "total_appointments": appointment_counts_row[0],
+        "appointments_pendentes": appointment_counts_row[1],
+        "appointments_realizados": appointment_counts_row[2],
+        "appointments_cancelados": appointment_counts_row[3],
+        "novas_consultas": appointment_counts_row[4],
+        "total_classrooms": Classroom.query.count(),
+        "total_messages": ChatMessage.query.count(),
+        "recent_users": User.query.order_by(User.created_at.desc()).limit(8).all(),
+    }
 
 
 
@@ -632,33 +730,21 @@ def admin_create_user():
         full_name=full_name,
         email=email,
         role=role,
-        classroom_id=int(classroom_id) if classroom_id else None,
+        classroom_id=parse_optional_classroom_id(classroom_id),
         crp_number=crp_number if role == "psicologo" else None,
     )
     user.set_password(password)
     
-    # Se for professor, adicionar turmas que ele vai lecionar
-    if role == "professor" and teaching_classrooms:
-        for classroom_id_str in teaching_classrooms:
-            try:
-                cid = int(classroom_id_str)
-                c = Classroom.query.get(cid)
-                if c:
-                    user.teaching_classrooms.append(c)
-            except (ValueError, TypeError):
-                pass
+    try:
+        if role == "professor" and teaching_classrooms:
+            sync_teaching_classrooms(user, teaching_classrooms)
 
-    if role == "psicologo":
-        for row in availabilities_payload:
-            user.availabilities.append(
-                PsychologistAvailability(
-                    weekday=row["weekday"],
-                    period=row["period"],
-                    start_time=row["start_time"],
-                    end_time=row["end_time"],
-                    is_active=True,
-                )
-            )
+        if role == "psicologo":
+            replace_psychologist_availabilities(user, availabilities_payload)
+    except ValueError as err:
+        db.session.rollback()
+        flash(str(err), "warning")
+        return redirect(url_for("core.admin_users"))
     
     db.session.add(user)
     db.session.commit()
@@ -699,38 +785,27 @@ def admin_edit_user(user_id):
     user.full_name = full_name
     user.email = email
     user.role = role
-    user.classroom_id = int(classroom_id) if classroom_id else None
+    try:
+        user.classroom_id = parse_optional_classroom_id(classroom_id)
+    except ValueError as err:
+        flash(str(err), "warning")
+        return redirect(url_for("core.admin_users"))
     user.crp_number = crp_number if role == "psicologo" else None
     
-    # Se for professor, atualizar turmas que ele vai lecionar
-    if role == "professor":
-        user.teaching_classrooms.clear()
-        if teaching_classrooms:
-            for classroom_id_str in teaching_classrooms:
-                try:
-                    cid = int(classroom_id_str)
-                    c = Classroom.query.get(cid)
-                    if c:
-                        user.teaching_classrooms.append(c)
-                except (ValueError, TypeError):
-                    pass
-    else:
-        # Se não for professor, limpar as turmas de ensino
-        user.teaching_classrooms.clear()
+    try:
+        if role == "professor":
+            sync_teaching_classrooms(user, teaching_classrooms)
+        else:
+            user.teaching_classrooms.clear()
 
-    PsychologistAvailability.query.filter_by(psychologist_id=user.id).delete()
-    db.session.flush()
-    if role == "psicologo":
-        for row in availabilities_payload:
-            user.availabilities.append(
-                PsychologistAvailability(
-                    weekday=row["weekday"],
-                    period=row["period"],
-                    start_time=row["start_time"],
-                    end_time=row["end_time"],
-                    is_active=True,
-                )
-            )
+        if role == "psicologo":
+            replace_psychologist_availabilities(user, availabilities_payload)
+        else:
+            replace_psychologist_availabilities(user, [])
+    except ValueError as err:
+        db.session.rollback()
+        flash(str(err), "warning")
+        return redirect(url_for("core.admin_users"))
     
     db.session.commit()
 
@@ -1108,8 +1183,6 @@ def dashboard():
         )
 
     elif current_user.role == "admin":
-        from ..models import ChatMessage
-
         # Admin pode ver todos os trabalhos do sistema
         assignments = (
             Assignment.query
@@ -1121,25 +1194,15 @@ def dashboard():
         students = User.query.filter_by(role="aluno").order_by(User.full_name.asc()).limit(50).all()
 
         cutoff = datetime.utcnow() - timedelta(days=30)
-        stats_data = dict(
-            total_users=User.query.count(),
-            total_admins=User.query.filter_by(role="admin").count(),
-            total_professores=User.query.filter_by(role="professor").count(),
-            total_alunos=User.query.filter_by(role="aluno").count(),
-            total_psicologos=User.query.filter_by(role="psicologo").count(),
-            total_inativos=User.query.filter_by(is_active_user=False).count(),
-            total_assignments=Assignment.query.count(),
-            total_classrooms=Classroom.query.count(),
-            total_appointments=Appointment.query.count(),
-            total_messages=ChatMessage.query.count(),
-            appointments_pendentes=Appointment.query.filter_by(status="pendente").count(),
-            appointments_realizados=Appointment.query.filter_by(status="realizado").count(),
-            appointments_cancelados=Appointment.query.filter_by(status="cancelado").count(),
-            novos_usuarios=User.query.filter(User.created_at >= cutoff).count(),
-            novos_trabalhos=Assignment.query.filter(Assignment.created_at >= cutoff).count(),
-            novas_consultas=Appointment.query.filter(Appointment.created_at >= cutoff).count(),
-            recent_users=User.query.order_by(User.created_at.desc()).limit(8).all(),
-        )
+        stats_data = build_admin_dashboard_stats(cutoff)
+
+    unread_notifications = (
+        Notification.query.filter_by(user_id=current_user.id, is_read=False)
+        .order_by(Notification.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    g.notification_count = len(unread_notifications)
 
     return render_template(
         "dashboard.html",
@@ -1148,7 +1211,7 @@ def dashboard():
         classrooms=classrooms,
         students=students,
         now=datetime.utcnow(),
-        unread_notifications=Notification.query.filter_by(user_id=current_user.id, is_read=False).order_by(Notification.created_at.desc()).limit(10).all(),
+        unread_notifications=unread_notifications,
         **stats_data,
     )
 
@@ -2300,6 +2363,8 @@ def admin_assignments():
 
     classroom_id = request.args.get("classroom_id", "", type=str).strip()
     teacher_id   = request.args.get("teacher_id",   "", type=str).strip()
+    classroom_id_int = parse_optional_positive_int(classroom_id)
+    teacher_id_int = parse_optional_positive_int(teacher_id)
 
     query = Assignment.query.filter(
         Assignment.due_date >= week_start,
@@ -2307,10 +2372,10 @@ def admin_assignments():
         Assignment.is_finished.is_(False),
     )
 
-    if classroom_id:
-        query = query.filter(Assignment.classroom_id == int(classroom_id))
-    if teacher_id:
-        query = query.filter(Assignment.teacher_id == int(teacher_id))
+    if classroom_id_int is not None:
+        query = query.filter(Assignment.classroom_id == classroom_id_int)
+    if teacher_id_int is not None:
+        query = query.filter(Assignment.teacher_id == teacher_id_int)
 
     assignments = query.options(joinedload(Assignment.submissions)).order_by(Assignment.due_date.asc(), Assignment.created_at.asc()).all()
 
@@ -2358,6 +2423,7 @@ def professor_assignments():
     week_end = week_days[-1]
 
     classroom_id = request.args.get("classroom_id", "", type=str).strip()
+    classroom_id_int = parse_optional_positive_int(classroom_id)
 
     # Turmas vinculadas ao professor (leciona)
     teacher_classrooms = current_user.teaching_classrooms
@@ -2370,8 +2436,8 @@ def professor_assignments():
         Assignment.is_finished.is_(False),
     )
 
-    if classroom_id and classroom_id.isdigit():
-        query = query.filter(Assignment.classroom_id == int(classroom_id))
+    if classroom_id_int is not None:
+        query = query.filter(Assignment.classroom_id == classroom_id_int)
 
     assignments = query.order_by(Assignment.due_date.asc(), Assignment.created_at.asc()).all()
 
@@ -2399,6 +2465,7 @@ def professor_assignments():
 def professor_finished_assignments():
     """Página de trabalhos do professor com abas de andamento e finalizados."""
     classroom_id = request.args.get("classroom_id", "", type=str).strip()
+    classroom_id_int = parse_optional_positive_int(classroom_id)
     selected_tab = request.args.get("tab", "andamento", type=str).strip().lower()
     if selected_tab not in {"andamento", "finalizados"}:
         selected_tab = "andamento"
@@ -2429,8 +2496,7 @@ def professor_finished_assignments():
         Assignment.is_finished.is_(True),
     )
 
-    if classroom_id and classroom_id.isdigit():
-        classroom_id_int = int(classroom_id)
+    if classroom_id_int is not None:
         ongoing_query = ongoing_query.filter(Assignment.classroom_id == classroom_id_int)
         finished_query = finished_query.filter(Assignment.classroom_id == classroom_id_int)
 

@@ -2,6 +2,9 @@ import os
 from datetime import timedelta
 
 
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
 def _normalize_database_url(database_url: str) -> str:
     # Heroku-style URLs may come as postgres:// and need SQLAlchemy-compatible prefix.
     if database_url.startswith("postgres://"):
@@ -16,7 +19,17 @@ def _resolve_database_uri() -> str:
         db_url = os.getenv("DATABASE_URL") or os.getenv("PRODUCTION_DATABASE_URL")
         if db_url:
             return _normalize_database_url(db_url)
-        return "postgresql+psycopg://postgres:postgres@localhost:5432/agenda_escolar"
+
+        fallback_allowed = os.getenv("ALLOW_INSECURE_PRODUCTION_DB_FALLBACK", "").strip().lower() in TRUTHY_VALUES
+        fallback_url = os.getenv("PRODUCTION_DATABASE_FALLBACK_URL", "").strip()
+        if fallback_allowed and fallback_url:
+            return _normalize_database_url(fallback_url)
+
+        raise RuntimeError(
+            "Production requires DATABASE_URL or PRODUCTION_DATABASE_URL. "
+            "If you really need a temporary fallback, set "
+            "ALLOW_INSECURE_PRODUCTION_DB_FALLBACK=1 and PRODUCTION_DATABASE_FALLBACK_URL."
+        )
 
     # Development defaults to local SQLite for zero-setup onboarding.
     dev_url = os.getenv("DATABASE_URL") or os.getenv("DEVELOPMENT_DATABASE_URL")
