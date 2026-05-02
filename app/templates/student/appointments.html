@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 {% block title %}Agendamentos | Agenda Escolar{% endblock %}
 {% block page_title %}Agendamentos{% endblock %}
 
@@ -66,21 +67,7 @@
       {% endfor %}
     </div>
 
-    {% if appointments_pagination and appointments_pagination.pages > 1 %}
-    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
-      {% if appointments_pagination.has_prev %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.student_appointments', page=appointments_pagination.prev_num, per_page=appointments_pagination.per_page) }}">Anterior</a>
-      {% endif %}
-
-      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ appointments_pagination.page }} de {{ appointments_pagination.pages }}</span>
-
-      {% if appointments_pagination.has_next %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.student_appointments', page=appointments_pagination.next_num, per_page=appointments_pagination.per_page) }}">Proxima</a>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if appointments_pagination %}
+      {{ pagination(appointments_pagination, 'core.student_appointments', {'per_page': appointments_pagination.per_page if appointments_pagination else 12}) }}
     <form method="get" style="display:flex;justify-content:center;gap:8px;margin-top:10px;align-items:center;">
       <label for="student-appointments-per-page" style="font-size:.9rem;color:var(--text-muted)">Itens por pagina</label>
       <select id="student-appointments-per-page" name="per_page" onchange="this.form.submit()" style="max-width:120px;">
@@ -90,7 +77,6 @@
         <option value="50" {% if appointments_pagination.per_page == 50 %}selected{% endif %}>50</option>
       </select>
     </form>
-    {% endif %}
   </div>
 </div>
 {% endblock %}

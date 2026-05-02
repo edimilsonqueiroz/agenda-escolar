@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 {% block title %}Gestao de Usuarios | Agenda Escolar{% endblock %}
 {% block page_title %}Gestao de Usuarios{% endblock %}
 
@@ -115,19 +116,7 @@
       </table>
     </div>
 
-    {% if users_pagination and users_pagination.pages > 1 %}
-    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
-      {% if users_pagination.has_prev %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_users', q=search, role=role_filter, page=users_pagination.prev_num, per_page=users_pagination.per_page) }}">Anterior</a>
-      {% endif %}
-
-      <span class="btn btn-sm btn-outline" style="pointer-events:none">Pagina {{ users_pagination.page }} de {{ users_pagination.pages }}</span>
-
-      {% if users_pagination.has_next %}
-      <a class="btn btn-sm btn-outline" href="{{ url_for('core.admin_users', q=search, role=role_filter, page=users_pagination.next_num, per_page=users_pagination.per_page) }}">Proxima</a>
-      {% endif %}
-    </div>
-    {% endif %}
+    {{ pagination(users_pagination, 'core.admin_users', {'q': search, 'role': role_filter, 'per_page': users_pagination.per_page if users_pagination else 12}) }}
   </div>
 
 </div>

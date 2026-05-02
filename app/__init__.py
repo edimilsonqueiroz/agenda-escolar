@@ -1,12 +1,12 @@
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
-from flask import Flask, g, jsonify, redirect, url_for
+from flask import Flask, g, jsonify, redirect, request, send_from_directory, url_for
 from flask_login import current_user
 from sqlalchemy.exc import OperationalError
 
 from .config import get_config
-from .extensions import csrf, db, limiter, login_manager, migrate, socketio
+from .extensions import csrf, db, limiter, login_manager, mail, migrate, socketio
 from .models import ChatRoom, User
 
 
@@ -26,18 +26,26 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
-def create_app():
+def create_app(test_config: dict | None = None):
     app = Flask(__name__)
     app.config.from_object(get_config())
+    if test_config:
+        app.config.update(test_config)
 
     db.init_app(app)
     migrate.init_app(app, db)
+    socketio.init_app(app, cors_allowed_origins="*")
     csrf.init_app(app)
     login_manager.init_app(app)
     limiter.init_app(app)
-    socketio.init_app(app)
+    mail.init_app(app)
 
     login_manager.login_view = "auth.login"
+
+    # Adiciona exceção CSRF para socket.io
+    @csrf.exempt
+    def socket_io_static():
+        pass
 
     register_blueprints(app)
     register_hooks(app)
@@ -68,6 +76,21 @@ def register_hooks(app):
         if localized is None:
             return "-"
         return localized.strftime(fmt)
+
+    @app.get("/favicon.ico")
+    @limiter.exempt
+    def favicon():
+        """Retorna um favicon vazio para evitar erro 404"""
+        return "", 204
+
+    @app.before_request
+    def exempt_socketio():
+        """Exempta socket.io do CSRF e rate limiting"""
+        if request.path.startswith('/socket.io'):
+            request.environ['CSRF_EXEMPT'] = True
+            # Exemta rate limiting também
+            from flask_limiter import LIMITER_STORAGE_UNAVAILABLE_PLACEHOLDER
+            request.environ['RATELIMIT_LIMIT_REACHED'] = False
 
     @app.get("/health")
     def health_check():

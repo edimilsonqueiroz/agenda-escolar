@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 {% block title %}Encaminhamentos | Agenda Escolar{% endblock %}
 {% block page_title %}Encaminhamentos{% endblock %}
 
@@ -76,18 +77,6 @@
     {% endfor %}
   </div>
 
-  {% if referrals_pagination and referrals_pagination.pages > 1 %}
-  <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px">
-    {% if referrals_pagination.has_prev %}
-    <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_referrals', status=status_filter, page=referrals_pagination.prev_num) }}">Anterior</a>
-    {% endif %}
-
-    <span class="btn btn-sm btn-outline" style="pointer-events:none">Página {{ referrals_pagination.page }} de {{ referrals_pagination.pages }}</span>
-
-    {% if referrals_pagination.has_next %}
-    <a class="btn btn-sm btn-outline" href="{{ url_for('core.psychologist_referrals', status=status_filter, page=referrals_pagination.next_num) }}">Próxima</a>
-    {% endif %}
-  </div>
-  {% endif %}
+  {{ pagination(referrals_pagination, 'core.psychologist_referrals', {'status': status_filter}) }}
 </div>
 {% endblock %}

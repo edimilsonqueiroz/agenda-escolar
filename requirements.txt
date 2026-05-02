@@ -5,6 +5,7 @@ Flask-Migrate
 Flask-WTF
 Flask-SocketIO
 Flask-Limiter
+Flask-Mail
 python-dotenv
 email-validator
 psycopg[binary]
