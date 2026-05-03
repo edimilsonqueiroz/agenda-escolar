@@ -38,7 +38,7 @@
   {% if submission.status == 'aprovado' %}
   <div class="panel reveal delay-2" style="background:var(--surface-2);border-left:4px solid var(--success)">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--success)"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+      <i class="fa-solid fa-circle-check" style="color:var(--success);font-size:22px;"></i>
       <div>
         <div style="font-weight:700;color:var(--success)">Trabalho aprovado pelo professor!</div>
         <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">Submetido em {{ submission.submitted_at.strftime('%d/%m/%Y às %H:%M') }}</div>
@@ -92,7 +92,7 @@
   {% if can_resubmit %}
   <div class="panel reveal delay-2" style="border-left:4px solid var(--danger)">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--danger);flex-shrink:0"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+      <i class="fa-solid fa-clock-rotate-left" style="color:var(--danger);flex-shrink:0;font-size:22px;"></i>
       <div>
         <div style="font-weight:700;color:var(--danger)">Trabalho devolvido para correção</div>
         <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">Faça os ajustes e envie novamente.</div>
@@ -111,7 +111,7 @@
   <!-- Prazo encerrado -->
   <div class="panel reveal delay-2" style="border-left:4px solid var(--danger)">
     <div style="display:flex;align-items:center;gap:12px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <i class="fa-solid fa-circle-exclamation" style="color:var(--danger);flex-shrink:0;font-size:22px;"></i>
       <div>
         <div style="font-weight:700;color:var(--danger)">Prazo encerrado</div>
         <div style="font-size:.9rem;color:var(--text-muted);margin-top:2px">A data de entrega foi {{ assignment.due_date.strftime('%d/%m/%Y') }} e não é mais possível submeter este trabalho.</div>

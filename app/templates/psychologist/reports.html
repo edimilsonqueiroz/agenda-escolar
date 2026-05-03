@@ -38,20 +38,32 @@
 
   <div class="stats-grid reveal delay-1">
     <div class="stat-card">
-      <span class="stat-value">{{ status_counts.total }}</span>
-      <span class="stat-label">Total de acompanhamentos</span>
+      <div class="stat-icon"><i class="fa-solid fa-chart-column"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ status_counts.total }}</span>
+        <span class="stat-label">Total de acompanhamentos</span>
+      </div>
     </div>
-    <div class="stat-card" style="border-top-color:#f59e0b;">
-      <span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span>
-      <span class="stat-label">Pendentes/confirmados</span>
+    <div class="stat-card stat-card--warning">
+      <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span>
+        <span class="stat-label">Pendentes/confirmados</span>
+      </div>
     </div>
-    <div class="stat-card" style="border-top-color:#10b981;">
-      <span class="stat-value">{{ status_counts.realizado }}</span>
-      <span class="stat-label">Realizados</span>
+    <div class="stat-card stat-card--success">
+      <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ status_counts.realizado }}</span>
+        <span class="stat-label">Realizados</span>
+      </div>
     </div>
-    <div class="stat-card" style="border-top-color:#ef4444;">
-      <span class="stat-value">{{ status_counts.cancelado }}</span>
-      <span class="stat-label">Cancelados</span>
+    <div class="stat-card stat-card--danger">
+      <div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ status_counts.cancelado }}</span>
+        <span class="stat-label">Cancelados</span>
+      </div>
     </div>
   </div>
 

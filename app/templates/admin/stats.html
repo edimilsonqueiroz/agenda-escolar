@@ -44,28 +44,46 @@
     <div class="stats-section-title">Totais do sistema</div>
     <div class="stats-totals-grid">
       <div class="total-card">
-        <div class="total-value">{{ total_users }}</div>
-        <div class="total-label">Usuarios totais</div>
+        <div class="total-icon"><i class="fa-solid fa-users"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_users }}</div>
+          <div class="total-label">Usuarios totais</div>
+        </div>
       </div>
       <div class="total-card">
-        <div class="total-value">{{ total_classrooms }}</div>
-        <div class="total-label">Turmas</div>
+        <div class="total-icon"><i class="fa-solid fa-school"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_classrooms }}</div>
+          <div class="total-label">Turmas</div>
+        </div>
       </div>
       <div class="total-card">
-        <div class="total-value">{{ total_assignments }}</div>
-        <div class="total-label">Trabalhos</div>
+        <div class="total-icon"><i class="fa-solid fa-file-lines"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_assignments }}</div>
+          <div class="total-label">Trabalhos</div>
+        </div>
       </div>
       <div class="total-card">
-        <div class="total-value">{{ total_appointments }}</div>
-        <div class="total-label">Consultas</div>
+        <div class="total-icon"><i class="fa-solid fa-calendar-days"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_appointments }}</div>
+          <div class="total-label">Consultas</div>
+        </div>
       </div>
       <div class="total-card">
-        <div class="total-value">{{ total_messages }}</div>
-        <div class="total-label">Mensagens no chat</div>
+        <div class="total-icon"><i class="fa-solid fa-comments"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_messages }}</div>
+          <div class="total-label">Mensagens no chat</div>
+        </div>
       </div>
       <div class="total-card total-card--warning">
-        <div class="total-value">{{ total_inativos }}</div>
-        <div class="total-label">Usuarios inativos</div>
+        <div class="total-icon"><i class="fa-solid fa-user-slash"></i></div>
+        <div class="total-body">
+          <div class="total-value">{{ total_inativos }}</div>
+          <div class="total-label">Usuarios inativos</div>
+        </div>
       </div>
     </div>
   </div>
