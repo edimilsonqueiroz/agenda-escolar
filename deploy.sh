@@ -61,7 +61,7 @@ info "Repositório : ${GIT_REPO}"
 info "Domínio/IP  : ${SERVER_NAME}"
 info "Diretório   : ${APP_DIR}"
 info "Usuário     : ${APP_USER}"
-info "Banco       : $( [[ -z "${DATABASE_URL:-}" ]] && echo 'SQLite' || echo 'PostgreSQL' )"
+info "Banco       : PostgreSQL"
 info "SSL         : ${USE_SSL}"
 
 # =============================================================================
@@ -73,7 +73,8 @@ apt-get update -q
 apt-get install -y -q \
     python3 python3-pip python3-venv python3-dev \
     nginx git curl build-essential \
-    libpq-dev libssl-dev libffi-dev
+    libpq-dev libssl-dev libffi-dev \
+    postgresql postgresql-contrib
 
 ok "Pacotes instalados"
 
@@ -95,9 +96,50 @@ else
 fi
 
 # =============================================================================
-#  3. CÓDIGO-FONTE
+#  3. POSTGRESQL
 # =============================================================================
-section "3. Código-fonte"
+section "3. PostgreSQL"
+
+systemctl enable postgresql
+systemctl start postgresql
+ok "Serviço PostgreSQL iniciado"
+
+if [[ -z "${DATABASE_URL:-}" ]]; then
+    # Banco local — criar usuário e banco automaticamente
+    DB_NAME="${DB_NAME:-agenda_escolar}"
+    DB_USER="${DB_USER:-agenda_db}"
+
+    if [[ -z "${DB_PASS:-}" ]]; then
+        DB_PASS="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+        warn "DB_PASS não definida — gerada automaticamente (salve-a!)"
+        warn "DB_PASS=${DB_PASS}"
+    fi
+
+    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
+        sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';"
+        ok "Usuário PostgreSQL '${DB_USER}' criado"
+    else
+        sudo -u postgres psql -c "ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASS}';"
+        warn "Usuário '${DB_USER}' já existe — senha atualizada"
+    fi
+
+    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
+        sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+        ok "Banco '${DB_NAME}' criado"
+    else
+        warn "Banco '${DB_NAME}' já existe — mantido"
+    fi
+
+    DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost/${DB_NAME}"
+    ok "DATABASE_URL configurada: postgresql://${DB_USER}:***@localhost/${DB_NAME}"
+else
+    ok "DATABASE_URL externa — banco local ignorado"
+fi
+
+# =============================================================================
+#  4. CÓDIGO-FONTE
+# =============================================================================
+section "4. Código-fonte"
 
 if [[ -d "${APP_DIR}/.git" ]]; then
     warn "Repositório já existe — atualizando..."
@@ -111,9 +153,9 @@ fi
 chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
 
 # =============================================================================
-#  4. AMBIENTE VIRTUAL PYTHON
+#  5. AMBIENTE VIRTUAL PYTHON
 # =============================================================================
-section "4. Ambiente virtual Python"
+section "5. Ambiente virtual Python"
 
 VENV_DIR="${APP_DIR}/venv"
 
@@ -127,9 +169,9 @@ fi
 ok "Dependências Python instaladas"
 
 # =============================================================================
-#  5. ARQUIVO .env DE PRODUÇÃO
+#  6. ARQUIVO .env DE PRODUÇÃO
 # =============================================================================
-section "5. Arquivo .env"
+section "6. Arquivo .env"
 
 ENV_FILE="${APP_DIR}/.env"
 
@@ -139,12 +181,8 @@ if [[ -f "$ENV_FILE" ]]; then
     [[ -n "$EXISTING_KEY" ]] && SECRET_KEY="$EXISTING_KEY"
 fi
 
-if [[ -n "${DATABASE_URL:-}" ]]; then
-    DB_BLOCK="DATABASE_URL=${DATABASE_URL}
+DB_BLOCK="DATABASE_URL=${DATABASE_URL}
 PRODUCTION_DATABASE_URL=${DATABASE_URL}"
-else
-    DB_BLOCK="# DATABASE_URL vazia — usando SQLite"
-fi
 
 cat > "$ENV_FILE" <<EOF
 # Gerado por deploy.sh em $(date '+%Y-%m-%d %H:%M')
@@ -170,9 +208,9 @@ chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 ok ".env criado em ${ENV_FILE}"
 
 # =============================================================================
-#  6. BANCO DE DADOS — MIGRAÇÕES E SEED
+#  7. BANCO DE DADOS — MIGRAÇÕES E SEED
 # =============================================================================
-section "6. Banco de dados"
+section "7. Banco de dados"
 
 cd "$APP_DIR"
 
@@ -218,9 +256,9 @@ else
 fi
 
 # =============================================================================
-#  7. SERVIÇO SYSTEMD (GUNICORN)
+#  8. SERVIÇO SYSTEMD (GUNICORN)
 # =============================================================================
-section "7. Serviço systemd"
+section "8. Serviço systemd"
 
 mkdir -p /var/log/agenda_escolar
 chown "${APP_USER}:${APP_USER}" /var/log/agenda_escolar
@@ -264,9 +302,9 @@ systemctl restart agenda_escolar
 ok "Serviço agenda_escolar ativo"
 
 # =============================================================================
-#  8. NGINX — PROXY REVERSO
+#  9. NGINX — PROXY REVERSO
 # =============================================================================
-section "8. Nginx"
+section "9. Nginx"
 
 NGINX_CONF="/etc/nginx/sites-available/agenda_escolar"
 
@@ -332,10 +370,10 @@ systemctl reload nginx
 ok "Nginx configurado"
 
 # =============================================================================
-#  9. HTTPS COM CERTBOT (opcional)
+#  10. HTTPS COM CERTBOT (opcional)
 # =============================================================================
 if [[ "$USE_SSL" == "sim" ]]; then
-    section "9. Certificado SSL (Let's Encrypt)"
+    section "10. Certificado SSL (Let's Encrypt)"
 
     if [[ "$SERVER_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         warn "SSL pulado — Certbot exige domínio, não IP."

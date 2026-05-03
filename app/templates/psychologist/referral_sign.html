@@ -166,8 +166,132 @@
     margin-bottom: 4px;
   }
 
+  .mobile-sign-box {
+    margin: 18px 0 22px;
+    padding: 14px;
+    border: 1px solid #d8e2ef;
+    background: #f8fbff;
+    border-radius: 8px;
+  }
+
+  .mobile-sign-title {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1f3c68;
+  }
+
+  .mobile-sign-content {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-sign-qr {
+    width: 120px;
+    height: 120px;
+    border: 1px solid #cdd9e8;
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .mobile-sign-link {
+    font-size: 0.85rem;
+    color: #2a4f85;
+    word-break: break-all;
+  }
+
+  .mobile-sign-actions {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .sign-container {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .sign-form {
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+      min-height: 100dvh;
+    }
+
+    .referral-info,
+    .already-signed,
+    .info-box,
+    .mobile-sign-box,
+    .form-actions {
+      display: none;
+    }
+
+    .signature-section {
+      position: fixed;
+      inset: 0;
+      margin: 0;
+      background: #fff;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px calc(84px + env(safe-area-inset-bottom));
+    }
+
+    .signature-section h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .canvas-instructions {
+      margin-bottom: 10px;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      min-height: 0;
+      margin-bottom: 0;
+      border-radius: 8px;
+    }
+
+    #signatureCanvas {
+      height: 100%;
+      touch-action: none;
+    }
+
+    .signature-section > .btn-clear-sig {
+      display: none;
+    }
+
+    .mobile-sign-actions {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: #fff;
+      border-top: 1px solid #d8d8d8;
+    }
+
+    .mobile-sign-actions .btn,
+    .mobile-sign-actions .btn-clear-sig {
+      width: 100%;
+      min-height: 44px;
+      font-size: 0.95rem;
+    }
+
+    .mobile-sign-actions .btn-clear-sig {
+      display: block;
+    }
+  }
+
   @media print {
-    .form-actions, .signature-buttons, .btn-clear-sig, .info-box {
+    .form-actions, .signature-buttons, .btn-clear-sig, .info-box, .mobile-sign-actions {
       display: none;
     }
     .sign-container {
@@ -230,6 +354,19 @@
       <strong>Instruções para assinatura:</strong> Desenhe sua assinatura no espaço abaixo usando o mouse ou touchpad.
     </div>
 
+    <div class="mobile-sign-box">
+      <p class="mobile-sign-title">Assinar no celular com QR Code</p>
+      <div class="mobile-sign-content">
+        {% if sign_qr_b64 %}
+        <img class="mobile-sign-qr" src="data:image/png;base64,{{ sign_qr_b64 }}" alt="QR Code para assinatura no celular">
+        {% endif %}
+        <div>
+          <div style="font-size: 0.9rem; color: #3a4d66; margin-bottom: 6px;">Abra a câmera do celular e leia o QR para abrir esta tela de assinatura.</div>
+          <a class="mobile-sign-link" href="{{ sign_url }}" target="_blank" rel="noopener">{{ sign_url }}</a>
+        </div>
+      </div>
+    </div>
+
     <div class="signature-section">
       <h3>Assinatura do(a) Psicólogo(a)</h3>
       <div class="canvas-instructions">Clique e arraste para desenhar sua assinatura</div>
@@ -246,6 +383,11 @@
       </div>
     </form>
 
+    <div class="mobile-sign-actions">
+      <button type="button" class="btn-clear-sig" onclick="clearSignature()">Limpar assinatura</button>
+      <button type="submit" form="signatureForm" class="btn btn-primary">Assinar Encaminhamento</button>
+    </div>
+
     {% if referral.is_signed %}
     <div style="margin-top: 24px; text-align: center;">
       <button type="button" class="btn btn-outline" onclick="window.print()">Imprimir Encaminhamento</button>
@@ -261,19 +403,24 @@
   let startX = 0;
   let startY = 0;
 
-  // Set canvas resolution
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
+  function paintCanvasBackground() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  }
 
-  // Set canvas background
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function resizeSignatureCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    paintCanvasBackground();
+  }
 
-  // Draw border
-  ctx.strokeStyle = '#ddd';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  resizeSignatureCanvas();
+  window.addEventListener('resize', resizeSignatureCanvas);
 
   {% if referral.is_signed %}
   // Draw existing signature
@@ -335,6 +482,42 @@
     ctx.closePath();
   });
 
+  function getTouchPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches && e.touches.length ? e.touches[0] : e.changedTouches[0];
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top
+    };
+  }
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    isDrawing = true;
+    const pos = getTouchPos(e);
+    startX = pos.x;
+    startY = pos.y;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const pos = getTouchPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#333';
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => {
+    isDrawing = false;
+    ctx.closePath();
+  });
+
   function clearSignature() {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -348,10 +531,12 @@
     
     const signatureData = canvas.toDataURL('image/png');
     
+    const csrfToken = (window.APP_CONTEXT && window.APP_CONTEXT.csrfToken) || '';
     fetch('{{ url_for("core.save_referral_signature", referral_id=referral.id) }}', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
       },
       body: JSON.stringify({
         signature: signatureData

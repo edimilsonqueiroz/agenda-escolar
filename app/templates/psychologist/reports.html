@@ -65,18 +65,18 @@
         <thead>
           <tr>
             <th>Aluno</th>
-            <th>Total</th>
-            <th>Realizados</th>
-            <th>Pendentes</th>
+            <th style="text-align:center;">Total</th>
+            <th style="text-align:center;">Realizados</th>
+            <th style="text-align:center;">Pendentes</th>
           </tr>
         </thead>
         <tbody>
           {% for item in students_summary %}
           <tr>
             <td>{{ item.student.full_name }}</td>
-            <td>{{ item.total }}</td>
-            <td>{{ item.realizado }}</td>
-            <td>{{ item.pendente }}</td>
+            <td style="text-align:center;">{{ item.total }}</td>
+            <td style="text-align:center;">{{ item.realizado }}</td>
+            <td style="text-align:center;">{{ item.pendente }}</td>
           </tr>
           {% else %}
           <tr><td colspan="4" class="empty">Nenhum acompanhamento encontrado.</td></tr>

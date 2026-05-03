@@ -3,7 +3,9 @@ import uuid
 import base64
 from io import BytesIO
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+_BRASILIA = timezone(timedelta(hours=-3))
 from collections import defaultdict
 from sqlalchemy import case, func
 from werkzeug.utils import secure_filename
@@ -17,7 +19,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for,
 from flask_login import current_user, login_required
 
 from ..extensions import db, limiter
-from ..models import Appointment, Assignment, AssignmentAttachment, ChatMessage, Classroom, Notification, PsychologistAvailability, User, Submission, SubmissionGroupMember, SubmissionHistoryEvent, Referral
+from ..models import Appointment, Assignment, AssignmentAttachment, AssignmentGroup, AssignmentGroupMember, ChatMessage, Classroom, Notification, PsychologistAvailability, User, Submission, SubmissionGroupMember, SubmissionHistoryEvent, Referral
 from ..security import roles_required
 from ..constants import APPOINTMENT_SLOT_MINUTES, AppointmentStatus, UserRole
 
@@ -1278,14 +1280,13 @@ def dashboard():
 @login_required
 @roles_required("psicologo")
 def psychologist_appointments():
-    status_filter = (request.args.get("status") or "").strip().lower()
+    tab = (request.args.get("tab") or "abertos").strip().lower()
     page, per_page = _read_pagination_params(default_per_page=10, max_per_page=50)
-    valid_statuses = {
-        AppointmentStatus.PENDENTE,
-        AppointmentStatus.CONFIRMADO,
-        AppointmentStatus.REALIZADO,
-        AppointmentStatus.CANCELADO,
-    }
+    if tab not in {"abertos", "finalizados"}:
+        tab = "abertos"
+
+    open_statuses = [AppointmentStatus.PENDENTE, AppointmentStatus.CONFIRMADO]
+    finalized_statuses = [AppointmentStatus.REALIZADO, AppointmentStatus.CANCELADO]
 
     query = (
         Appointment.query
@@ -1294,10 +1295,10 @@ def psychologist_appointments():
     )
     unfiltered_query = Appointment.query.filter_by(psychologist_id=current_user.id)
 
-    if status_filter in valid_statuses:
-        query = query.filter(Appointment.status == status_filter)
+    if tab == "abertos":
+        query = query.filter(Appointment.status.in_(open_statuses))
     else:
-        status_filter = ""
+        query = query.filter(Appointment.status.in_(finalized_statuses))
 
     appointments_pagination = query.order_by(Appointment.start_time.desc()).paginate(
         page=page,
@@ -1306,49 +1307,23 @@ def psychologist_appointments():
     )
     appointments = appointments_pagination.items
 
-    # weekly calendar data
-    now = datetime.utcnow()
-    today = now.date()
-    week_offset = request.args.get("week", 0, type=int)
-    base_monday = today - timedelta(days=today.weekday())
-    week_start = base_monday + timedelta(weeks=week_offset)
-    week_days = [week_start + timedelta(days=i) for i in range(5)]
-    week_end = week_days[-1]
-
-    weekly_appts = (
-        Appointment.query
-        .filter_by(psychologist_id=current_user.id)
-        .options(joinedload(Appointment.student))
-        .filter(
-            Appointment.start_time >= datetime.combine(week_start, datetime.min.time()),
-            Appointment.start_time <= datetime.combine(week_end, datetime.max.time()),
-        )
-        .order_by(Appointment.start_time.asc())
-        .all()
-    )
-
-    appointments_by_day = defaultdict(list)
-    for appt in weekly_appts:
-        appointments_by_day[appt.start_time.date()].append(appt)
+    open_count = unfiltered_query.filter(Appointment.status.in_(open_statuses)).count()
+    finalized_count = unfiltered_query.filter(Appointment.status.in_(finalized_statuses)).count()
 
     return render_template(
         "psychologist/appointments.html",
         appointments=appointments,
         appointments_pagination=appointments_pagination,
-        status_filter=status_filter,
+        active_tab=tab,
         status_counts={
             "total": unfiltered_query.count(),
+            "abertos": open_count,
+            "finalizados": finalized_count,
             "pendente": unfiltered_query.filter_by(status=AppointmentStatus.PENDENTE).count(),
             "confirmado": unfiltered_query.filter_by(status=AppointmentStatus.CONFIRMADO).count(),
             "realizado": unfiltered_query.filter_by(status=AppointmentStatus.REALIZADO).count(),
             "cancelado": unfiltered_query.filter_by(status=AppointmentStatus.CANCELADO).count(),
         },
-        week_offset=week_offset,
-        week_start=week_start,
-        week_end=week_end,
-        week_days=week_days,
-        today=today,
-        appointments_by_day=appointments_by_day,
     )
 
 
@@ -1593,7 +1568,7 @@ def appointment_record_page(appointment_id):
     if appointment.psychologist_id != current_user.id:
         abort(403)
 
-    can_edit = appointment.status in {"pendente", "confirmado"}
+    can_edit = appointment.status not in {"realizado", "cancelado"}
     return render_template("appointment_record.html", appointment=appointment, can_edit=can_edit)
 
 
@@ -1736,10 +1711,8 @@ def psychologist_print_reports():
             cx += col_w[0]
             # Data/hora
             pdf.setFont("Helvetica", 9)
-            pdf.drawString(cx + 2, y - 13, _safe_pdf_text(appt.start_time.strftime("%d/%m/%Y")))
-            pdf.setFillColor(PDF_COLOR_GRAY)
-            pdf.drawString(cx + 2, y - 24, _safe_pdf_text(appt.start_time.strftime("%H:%M") + " - " + appt.end_time.strftime("%H:%M")))
-            pdf.setFillColor(PDF_COLOR_TEXT)
+            date_str = _safe_pdf_text(appt.start_time.strftime("%d/%m/%Y") + "  " + appt.start_time.strftime("%H:%M") + " - " + appt.end_time.strftime("%H:%M"))
+            pdf.drawString(cx + 2, y - 13, date_str)
             cx += col_w[1]
             # Aluno
             pdf.setFont("Helvetica", 9)
@@ -1823,7 +1796,7 @@ def psychologist_print_appointment(appointment_id):
     if appointment.psychologist_id != current_user.id:
         abort(403)
 
-    generated_at = datetime.utcnow()
+    generated_at = datetime.now(_BRASILIA).replace(tzinfo=None)
     doc_title = f"Acompanhamento Psicologico - Protocolo #{appointment.id}"
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -2016,7 +1989,7 @@ def appointment_record_save(appointment_id):
         abort(403)
 
     if appointment.status in {"realizado", "cancelado"}:
-        flash("Este atendimento ja foi finalizado e esta somente para visualizacao.", "info")
+        flash("Este atendimento está finalizado. Reabra-o para editar.", "warning")
         return redirect(url_for("core.appointment_record_page", appointment_id=appointment.id))
 
     status = (request.form.get("status") or "").strip().lower()
@@ -2044,6 +2017,26 @@ def appointment_record_save(appointment_id):
 
     db.session.commit()
     flash("Registro de atendimento salvo com sucesso.", "success")
+    return redirect(url_for("core.appointment_record_page", appointment_id=appointment.id))
+
+
+@core_bp.post("/consultas/<int:appointment_id>/reabrir")
+@login_required
+@roles_required("psicologo")
+def reopen_appointment(appointment_id):
+    """Reabre um atendimento finalizado para permitir edicao."""
+    appointment = Appointment.query.get_or_404(appointment_id)
+
+    if appointment.psychologist_id != current_user.id:
+        abort(403)
+
+    if appointment.status not in {"realizado", "cancelado"}:
+        flash("Este atendimento nao precisa ser reaberto.", "info")
+        return redirect(url_for("core.appointment_record_page", appointment_id=appointment.id))
+
+    appointment.status = "confirmado"
+    db.session.commit()
+    flash("Atendimento reaberto. Voce pode editar o registro agora.", "success")
     return redirect(url_for("core.appointment_record_page", appointment_id=appointment.id))
 
 
@@ -2184,10 +2177,28 @@ def referral_sign_page(referral_id):
     if referral.is_signed and referral.signature:
         signature_b64 = base64.b64encode(referral.signature).decode("utf-8")
 
+    sign_url = url_for("core.referral_sign_page", referral_id=referral.id, _external=True)
+    sign_qr_b64 = ""
+    try:
+        import qrcode
+
+        qr = qrcode.QRCode(box_size=6, border=2)
+        qr.add_data(sign_url)
+        qr.make(fit=True)
+        qr_image = qr.make_image(fill_color="black", back_color="white")
+        qr_buffer = BytesIO()
+        qr_image.save(qr_buffer, format="PNG")
+        sign_qr_b64 = base64.b64encode(qr_buffer.getvalue()).decode("utf-8")
+    except Exception:
+        # Mantem o fluxo de assinatura mesmo sem geracao do QR.
+        sign_qr_b64 = ""
+
     return render_template(
         "psychologist/referral_sign.html",
         referral=referral,
         signature_b64=signature_b64,
+        sign_url=sign_url,
+        sign_qr_b64=sign_qr_b64,
         REFERRAL_TYPES=REFERRAL_TYPES
     )
 
@@ -2205,7 +2216,7 @@ def save_referral_signature(referral_id):
         return {"success": False, "message": "Nao autorizado"}, 403
 
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True) or {}
         signature_data = data.get("signature", "")
 
         # Remove data URI prefix se presente
@@ -2216,7 +2227,7 @@ def save_referral_signature(referral_id):
         signature_bytes = base64.b64decode(signature_data)
         
         referral.signature = signature_bytes
-        referral.signature_date = datetime.utcnow()
+        referral.signature_date = datetime.now(_BRASILIA).replace(tzinfo=None)
         referral.is_signed = True
         db.session.commit()
 
@@ -2239,7 +2250,7 @@ def print_referral(referral_id):
     if referral.psychologist_id != current_user.id:
         abort(403)
 
-    generated_at = datetime.utcnow()
+    generated_at = datetime.now(_BRASILIA).replace(tzinfo=None)
     doc_title = f"Encaminhamento Clinico - Protocolo #{referral.id}"
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -2652,7 +2663,20 @@ def student_view_assignment(assignment_id):
     
     # Adiciona o próprio usuário no início da lista
     all_classmates = [current_user] + classmates
-    
+
+    # Verifica se o professor criou grupos para este trabalho
+    assigned_group = None
+    if assignment.work_type == "group":
+        assigned_group = (
+            AssignmentGroup.query
+            .join(AssignmentGroupMember)
+            .filter(
+                AssignmentGroup.assignment_id == assignment_id,
+                AssignmentGroupMember.student_id == current_user.id,
+            )
+            .first()
+        )
+
     return render_template(
         "student/assignment.html",
         assignment=assignment,
@@ -2660,6 +2684,7 @@ def student_view_assignment(assignment_id):
         classmates=all_classmates,
         overdue=overdue,
         can_resubmit=can_resubmit,
+        assigned_group=assigned_group,
     )
 
 
@@ -2712,7 +2737,11 @@ def student_submit_assignment(assignment_id):
         is_group = submission.is_group
         group_member_ids = []
     else:
-        is_group = request.form.get("is_group") == "true"
+        work_type = (assignment.work_type or "individual").strip().lower()
+        if work_type in ("individual", "group"):
+            is_group = work_type == "group"
+        else:
+            is_group = request.form.get("is_group") == "true"
         group_member_ids = request.form.getlist("group_members") if is_group else []
 
     # Valida seleção de membros apenas na primeira submissão em grupo.
@@ -2886,12 +2915,22 @@ def teacher_view_submissions(assignment_id):
         not_submitted = base_query.filter(~User.id.in_(submitted_student_ids)).order_by(User.full_name).all()
     else:
         not_submitted = base_query.order_by(User.full_name).all()
-    
+
+    # Grupos criados pelo professor
+    groups = AssignmentGroup.query.filter_by(assignment_id=assignment_id).all()
+    # Alunos da turma para o seletor de membros
+    classroom_students = base_query.order_by(User.full_name).all()
+    # IDs já em algum grupo
+    grouped_ids = {m.student_id for g in groups for m in g.members}
+
     return render_template(
         "teacher/submissions.html",
         assignment=assignment,
         submissions=submissions,
         not_submitted=not_submitted,
+        groups=groups,
+        classroom_students=classroom_students,
+        grouped_ids=grouped_ids,
     )
 
 
@@ -3013,6 +3052,103 @@ def teacher_view_assignment(assignment_id):
 
 
 # ---------------------------------------------------------------------------
+# PROFESSOR - GERENCIAR GRUPOS DO TRABALHO
+# ---------------------------------------------------------------------------
+
+@core_bp.post("/trabalho/<int:assignment_id>/grupos/criar")
+@login_required
+@roles_required("professor")
+def teacher_create_group(assignment_id):
+    """Cria um grupo para um trabalho em grupo."""
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.teacher_id != current_user.id:
+        abort(403)
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Informe um nome para o grupo.", "warning")
+        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+    group = AssignmentGroup(assignment_id=assignment_id, name=name)
+    db.session.add(group)
+    db.session.commit()
+    flash(f"Grupo \"{name}\" criado.", "success")
+    return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+
+@core_bp.post("/trabalho/<int:assignment_id>/grupos/<int:group_id>/excluir")
+@login_required
+@roles_required("professor")
+def teacher_delete_group(assignment_id, group_id):
+    """Exclui um grupo (e seus membros)."""
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.teacher_id != current_user.id:
+        abort(403)
+    group = AssignmentGroup.query.get_or_404(group_id)
+    if group.assignment_id != assignment_id:
+        abort(403)
+    db.session.delete(group)
+    db.session.commit()
+    flash("Grupo excluído.", "success")
+    return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+
+@core_bp.post("/trabalho/<int:assignment_id>/grupos/<int:group_id>/membros/adicionar")
+@login_required
+@roles_required("professor")
+def teacher_add_group_member(assignment_id, group_id):
+    """Adiciona um aluno a um grupo."""
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.teacher_id != current_user.id:
+        abort(403)
+    group = AssignmentGroup.query.get_or_404(group_id)
+    if group.assignment_id != assignment_id:
+        abort(403)
+    student_id_raw = request.form.get("student_id", "").strip()
+    try:
+        student_id = int(student_id_raw)
+    except (ValueError, TypeError):
+        flash("Aluno inválido.", "danger")
+        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+    student = User.query.get_or_404(student_id)
+    if student.classroom_id != assignment.classroom_id or student.role != "aluno":
+        flash("Aluno não pertence à turma.", "danger")
+        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+    # Verifica se o aluno já está em algum grupo deste trabalho
+    already = (
+        AssignmentGroupMember.query
+        .join(AssignmentGroup)
+        .filter(
+            AssignmentGroup.assignment_id == assignment_id,
+            AssignmentGroupMember.student_id == student_id,
+        ).first()
+    )
+    if already:
+        flash(f"{student.full_name} já está em outro grupo deste trabalho.", "warning")
+        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+    db.session.add(AssignmentGroupMember(group_id=group_id, student_id=student_id))
+    db.session.commit()
+    flash(f"{student.full_name} adicionado ao grupo.", "success")
+    return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+
+@core_bp.post("/trabalho/<int:assignment_id>/grupos/<int:group_id>/membros/<int:student_id>/remover")
+@login_required
+@roles_required("professor")
+def teacher_remove_group_member(assignment_id, group_id, student_id):
+    """Remove um aluno de um grupo."""
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.teacher_id != current_user.id:
+        abort(403)
+    member = AssignmentGroupMember.query.filter_by(group_id=group_id, student_id=student_id).first_or_404()
+    db.session.delete(member)
+    db.session.commit()
+    flash("Membro removido do grupo.", "success")
+    return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+
+# ---------------------------------------------------------------------------
 # PROFESSOR - AVALIAR SUBMISSÃO
 # ---------------------------------------------------------------------------
 
@@ -3020,7 +3156,7 @@ def teacher_view_assignment(assignment_id):
 @login_required
 @roles_required("professor")
 def teacher_evaluate_submission(assignment_id, submission_id):
-    """Aprova ou devolve uma submissão com feedback."""
+    """Aprova ou devolve uma submissão com feedback e notas individuais por membro."""
     submission = Submission.query.get_or_404(submission_id)
     assignment = Assignment.query.get_or_404(assignment_id)
 
@@ -3032,10 +3168,30 @@ def teacher_evaluate_submission(assignment_id, submission_id):
     grade = request.form.get("grade", "").strip()
     previous_status = submission.status
 
+    if action not in ("aprovar", "devolver"):
+        flash("Ação inválida.", "danger")
+        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+
+    # Salva notas individuais dos membros do grupo
+    if submission.is_group:
+        for member in submission.group_members:
+            key = f"member_grade_{member.student_id}"
+            mg = request.form.get(key, "").strip()
+            member.member_grade = mg or None
+        # nota do líder (student_id)
+        leader_grade = request.form.get(f"member_grade_{submission.student_id}", "").strip()
+        if leader_grade:
+            submission.grade = leader_grade
+        elif grade:
+            submission.grade = grade
+        else:
+            submission.grade = None
+    else:
+        submission.grade = grade or None
+
     if action == "aprovar":
         submission.status = "aprovado"
         submission.feedback = feedback or None
-        submission.grade = grade or None
         db.session.add(SubmissionHistoryEvent(
             submission_id=submission.id,
             actor_id=current_user.id,
@@ -3045,23 +3201,36 @@ def teacher_evaluate_submission(assignment_id, submission_id):
             grade=grade or None,
             note=feedback or None,
         ))
-        # Notificação positiva ao aluno
         title = f"Trabalho aprovado: {assignment.title}"
         message = f"O professor avaliou e aprovou o seu trabalho \"{assignment.title}\"."
-        if grade:
-            message += f" Nota: {grade}."
+        nota_lider = submission.grade
+        if nota_lider:
+            message += f" Nota: {nota_lider}."
         if feedback:
             message += f" Comentário: {feedback}"
         db.session.add(Notification(
             user_id=submission.student_id,
             title=title,
             message=message,
-            link=f"/aluno/trabalhos",
+            link="/aluno/trabalhos",
         ))
-    elif action == "devolver":
+        # Notificar cada membro do grupo individualmente
+        for member in submission.group_members:
+            nota_mem = member.member_grade or nota_lider or ""
+            msg_mem = f"O professor aprovou o trabalho em grupo \"{assignment.title}\"."
+            if nota_mem:
+                msg_mem += f" Sua nota: {nota_mem}."
+            if feedback:
+                msg_mem += f" Comentário: {feedback}"
+            db.session.add(Notification(
+                user_id=member.student_id,
+                title=title,
+                message=msg_mem,
+                link="/aluno/trabalhos",
+            ))
+    else:  # devolver
         submission.status = "devolvido"
         submission.feedback = feedback or None
-        submission.grade = grade or None
         db.session.add(SubmissionHistoryEvent(
             submission_id=submission.id,
             actor_id=current_user.id,
@@ -3071,7 +3240,6 @@ def teacher_evaluate_submission(assignment_id, submission_id):
             grade=grade or None,
             note=feedback or None,
         ))
-        # Notificação ao aluno com motivo
         title = f"Trabalho devolvido: {assignment.title}"
         message = f"O professor devolveu o seu trabalho \"{assignment.title}\" para revisão."
         if feedback:
@@ -3080,11 +3248,15 @@ def teacher_evaluate_submission(assignment_id, submission_id):
             user_id=submission.student_id,
             title=title,
             message=message,
-            link=f"/aluno/trabalhos",
+            link="/aluno/trabalhos",
         ))
-    else:
-        flash("Ação inválida.", "danger")
-        return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
+        for member in submission.group_members:
+            db.session.add(Notification(
+                user_id=member.student_id,
+                title=title,
+                message=message,
+                link="/aluno/trabalhos",
+            ))
 
     db.session.commit()
     flash("Avaliação registrada com sucesso.", "success")

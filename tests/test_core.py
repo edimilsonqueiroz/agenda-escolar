@@ -12,7 +12,7 @@ Cobre:
 import pytest
 
 from app.extensions import db
-from app.models import Classroom, User
+from app.models import Classroom, Submission, SubmissionGroupMember, User
 from tests.conftest import (
     inject_session,
     make_assignment,
@@ -259,6 +259,46 @@ class TestProfile:
         inject_session(client, uid)
         resp = client.get("/perfil")
         assert resp.status_code == 200
+
+
+class TestStudentAssignmentSubmissions:
+    def test_group_assignment_submission_is_saved_as_group(self, client, app):
+        with app.app_context():
+            classroom = make_classroom("9G")
+            teacher = make_user("professor", "prof.group@test.com", classroom_id=classroom.id)
+            leader = make_user("aluno", "leader.group@test.com", classroom_id=classroom.id)
+            member = make_user("aluno", "member.group@test.com", classroom_id=classroom.id)
+            assignment = make_assignment(
+                teacher,
+                classroom,
+                title="Trabalho em Grupo",
+                work_type="group",
+            )
+            leader_id = leader.id
+            member_id = member.id
+            assignment_id = assignment.id
+
+        inject_session(client, leader_id)
+        resp = client.post(
+            f"/trabalho/{assignment_id}/submit",
+            data={"group_members": [str(member_id)]},
+            follow_redirects=False,
+        )
+
+        assert resp.status_code == 302
+
+        with app.app_context():
+            submission = Submission.query.filter_by(
+                assignment_id=assignment_id,
+                student_id=leader_id,
+            ).first()
+            assert submission is not None
+            assert submission.is_group is True
+
+            group_members = SubmissionGroupMember.query.filter_by(
+                submission_id=submission.id,
+            ).all()
+            assert [item.student_id for item in group_members] == [member_id]
 
     def test_profile_page_redirects_unauthenticated(self, client):
         resp = client.get("/perfil")
