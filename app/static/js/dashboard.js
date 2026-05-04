@@ -335,7 +335,8 @@ function appendMessage(message) {
   // Evitar mensagem duplicada (pode ocorrer se o servidor emitir para sala e para sender)
   if (message.id && messages.querySelector(`[data-msg-id="${message.id}"]`)) return;
 
-  const isMine = message.sender_id === window.APP_CONTEXT?.user?.id;
+  const currentUserId = window.APP_CONTEXT?.user?.id;
+  const isMine = String(message.sender_id) === String(currentUserId);
 
   const row = document.createElement("div");
   row.className = `chat-row ${isMine ? "chat-row--mine" : "chat-row--theirs"}`;

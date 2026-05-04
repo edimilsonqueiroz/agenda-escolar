@@ -11,7 +11,7 @@
     </div>
     <div class="week-nav">
       <a class="btn btn-outline week-nav-btn" href="{{ url_for('core.admin_assignments', week=week_offset-1, classroom_id=sel_classroom, teacher_id=sel_teacher) }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        <i class="fa-solid fa-chevron-left"></i>
         Semana anterior
       </a>
       {% if week_offset != 0 %}
@@ -19,7 +19,7 @@
       {% endif %}
       <a class="btn btn-outline week-nav-btn" href="{{ url_for('core.admin_assignments', week=week_offset+1, classroom_id=sel_classroom, teacher_id=sel_teacher) }}">
         Proxima semana
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+        <i class="fa-solid fa-chevron-right"></i>
       </a>
     </div>
   </div>
@@ -63,16 +63,11 @@
           <div class="wcal-card">
             <div class="wcal-card-title">{{ a.title }}</div>
             <div class="wcal-card-meta">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-              </svg>
+              <i class="fa-solid fa-users" style="font-size:12px;margin-right:4px"></i>
               {{ a.teacher.full_name }}
             </div>
             <div class="wcal-card-meta">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
+              <i class="fa-solid fa-chalkboard" style="font-size:12px;margin-right:4px"></i>
               {{ a.classroom.name }} — {{ a.classroom.school_year }}
             </div>
             {% if a.description %}

@@ -2,8 +2,9 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy.orm import joinedload
 
-from ..chat.socket_events import online_users
+from ..chat.socket_events import build_dm_room_name, online_users, parse_recipient_id
 from ..constants import APPOINTMENT_SLOT_MINUTES, AppointmentStatus
 from ..extensions import db, limiter
 from ..models import Appointment, Assignment, ChatMessage, ChatRoom, PsychologistAvailability, User
@@ -34,7 +35,12 @@ def list_assignments():
         # Outros roles não veem trabalhos
         query = query.filter_by(id=None)
 
-    assignments = query.order_by(Assignment.due_date.asc()).limit(50).all()
+    assignments = (
+        query.options(joinedload(Assignment.teacher))
+        .order_by(Assignment.due_date.asc())
+        .limit(50)
+        .all()
+    )
     return jsonify(
         [
             {
@@ -62,7 +68,15 @@ def list_appointments():
     elif current_user.role == "professor":
         return jsonify([])
 
-    appointments = query.order_by(Appointment.start_time.asc()).limit(50).all()
+    appointments = (
+        query.options(
+            joinedload(Appointment.student),
+            joinedload(Appointment.psychologist),
+        )
+        .order_by(Appointment.start_time.asc())
+        .limit(50)
+        .all()
+    )
     return jsonify(
         [
             {
@@ -84,7 +98,8 @@ def list_appointments():
 @limiter.limit("30/hour")
 def update_appointment_status(appointment_id):
     appointment = Appointment.query.get_or_404(appointment_id)
-    status = request.json.get("status", "").strip().lower()
+    payload = request.get_json(silent=True) or {}
+    status = str(payload.get("status", "")).strip().lower()
 
     if status not in AppointmentStatus.ALL:
         return jsonify({"error": "status invalido"}), 400
@@ -207,13 +222,14 @@ def psychologist_weekly_slots(psychologist_id):
 @api_bp.get("/chat/messages")
 @login_required
 def chat_messages():
-    room_name = request.args.get("room", "Geral")
-    recipient_id = request.args.get("recipient_id")
+    room_name = (request.args.get("room") or "Geral").strip() or "Geral"
+    recipient_id = parse_recipient_id(request.args.get("recipient_id"))
 
     # Se é uma conversa privada, criar nome de sala consistente
-    if recipient_id:
-        user_ids = sorted([current_user.id, int(recipient_id)])
-        room_name = f"dm_{user_ids[0]}_{user_ids[1]}"
+    if request.args.get("recipient_id") and recipient_id is None:
+        return jsonify({"error": "recipient_id invalido"}), 400
+    if recipient_id is not None:
+        room_name = build_dm_room_name(current_user.id, recipient_id)
 
     room = ChatRoom.query.filter_by(name=room_name).first()
     if not room:
@@ -221,6 +237,7 @@ def chat_messages():
 
     messages = (
         ChatMessage.query.filter_by(room_id=room.id)
+        .options(joinedload(ChatMessage.sender))
         .order_by(ChatMessage.created_at.desc())
         .limit(80)
         .all()

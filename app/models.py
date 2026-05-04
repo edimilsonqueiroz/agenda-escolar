@@ -90,6 +90,7 @@ class Assignment(TimestampMixin, db.Model):
     classroom = db.relationship("Classroom", back_populates="assignments")
     submissions = db.relationship("Submission", back_populates="assignment", lazy=True, cascade="all, delete-orphan")
     attachments = db.relationship("AssignmentAttachment", back_populates="assignment", lazy=True, cascade="all, delete-orphan")
+    groups = db.relationship("AssignmentGroup", back_populates="assignment", lazy=True, cascade="all, delete-orphan")
 
 
 class AssignmentAttachment(TimestampMixin, db.Model):
@@ -101,6 +102,30 @@ class AssignmentAttachment(TimestampMixin, db.Model):
     original_name = db.Column(db.String(255), nullable=True)
 
     assignment = db.relationship("Assignment", back_populates="attachments")
+
+
+class AssignmentGroup(TimestampMixin, db.Model):
+    """Grupo criado pelo professor para um trabalho em grupo."""
+    __tablename__ = "assignment_groups"
+
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey("assignments.id"), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+
+    assignment = db.relationship("Assignment", back_populates="groups")
+    members = db.relationship("AssignmentGroupMember", back_populates="group", cascade="all, delete-orphan", lazy=True)
+
+
+class AssignmentGroupMember(TimestampMixin, db.Model):
+    """Aluno pertencente a um grupo criado pelo professor."""
+    __tablename__ = "assignment_group_members"
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("assignment_groups.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    group = db.relationship("AssignmentGroup", back_populates="members")
+    student = db.relationship("User")
 
 
 class Submission(TimestampMixin, db.Model):
@@ -128,6 +153,7 @@ class SubmissionGroupMember(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    member_grade = db.Column(db.String(20), nullable=True)  # nota individual por membro
 
     submission = db.relationship("Submission", back_populates="group_members")
     student = db.relationship("User")

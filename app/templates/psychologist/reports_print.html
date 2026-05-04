@@ -24,10 +24,10 @@
   </div>
 
   <div class="stats-grid" style="margin-bottom:18px;">
-    <div class="stat-card"><span class="stat-value">{{ status_counts.total }}</span><span class="stat-label">Total</span></div>
-    <div class="stat-card"><span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span><span class="stat-label">Pendentes</span></div>
-    <div class="stat-card"><span class="stat-value">{{ status_counts.realizado }}</span><span class="stat-label">Realizados</span></div>
-    <div class="stat-card"><span class="stat-value">{{ status_counts.cancelado }}</span><span class="stat-label">Cancelados</span></div>
+    <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-list"></i></div><div class="stat-body"><span class="stat-value">{{ status_counts.total }}</span><span class="stat-label">Total</span></div></div>
+    <div class="stat-card stat-card--warning"><div class="stat-icon"><i class="fa-solid fa-clock"></i></div><div class="stat-body"><span class="stat-value">{{ status_counts.pendente + status_counts.confirmado }}</span><span class="stat-label">Pendentes</span></div></div>
+    <div class="stat-card stat-card--success"><div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div><div class="stat-body"><span class="stat-value">{{ status_counts.realizado }}</span><span class="stat-label">Realizados</span></div></div>
+    <div class="stat-card stat-card--danger"><div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div><div class="stat-body"><span class="stat-value">{{ status_counts.cancelado }}</span><span class="stat-label">Cancelados</span></div></div>
   </div>
 
   <div class="table-scroll">

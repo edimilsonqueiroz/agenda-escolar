@@ -11,6 +11,30 @@ online_users = {}
 connections_per_user = defaultdict(int)
 
 
+def parse_recipient_id(raw_value):
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_dm_room_name(first_user_id, second_user_id):
+    user_ids = sorted([int(first_user_id), int(second_user_id)])
+    return f"dm_{user_ids[0]}_{user_ids[1]}"
+
+
+def get_active_recipient(raw_value):
+    recipient_id = parse_recipient_id(raw_value)
+    if recipient_id is None:
+        return None, None
+
+    recipient = db.session.get(User, recipient_id)
+    if not recipient or not recipient.is_active_user:
+        return recipient_id, None
+
+    return recipient_id, recipient
+
+
 def register_socket_events(socketio):
     @socketio.on("connect")
     def handle_connect():
@@ -48,13 +72,12 @@ def register_socket_events(socketio):
         if not current_user.is_authenticated:
             return
 
-        recipient_id = (payload or {}).get("recipient_id")
-        if not recipient_id:
+        recipient_id, recipient = get_active_recipient((payload or {}).get("recipient_id"))
+        if recipient is None:
+            emit("chat:error", {"message": "Destinatario nao encontrado."})
             return
 
-        # Cria nome de sala consistente
-        user_ids = sorted([current_user.id, recipient_id])
-        room_name = f"dm_{user_ids[0]}_{user_ids[1]}"
+        room_name = build_dm_room_name(current_user.id, recipient_id)
         join_room(room_name)
         emit("chat:dm_joined", {"room": room_name})
 
@@ -78,14 +101,13 @@ def register_socket_events(socketio):
             return
 
         # Suporte a mensagens diretas
+        recipient = None
         if recipient_id:
-            recipient = User.query.get(recipient_id)
-            if not recipient or not recipient.is_active_user:
+            recipient_id, recipient = get_active_recipient(recipient_id)
+            if recipient is None:
                 emit("chat:error", {"message": "Destinatario nao encontrado."})
                 return
-            # Cria nome de sala privada consistente (dm_menor_id_maior_id)
-            user_ids = sorted([current_user.id, recipient_id])
-            room_name = f"dm_{user_ids[0]}_{user_ids[1]}"
+            room_name = build_dm_room_name(current_user.id, recipient_id)
 
         room = ChatRoom.query.filter_by(name=room_name).first()
         if not room:

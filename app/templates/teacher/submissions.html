@@ -1,333 +1,1378 @@
 {% extends "base.html" %}
+
+
 {% block title %}Submissões - {{ assignment.title }} | Agenda Escolar{% endblock %}
+
+
 {% block page_title %}Submissões: {{ assignment.title }}{% endblock %}
 
+
+
+
+
 {% block content %}
+
+
 <div class="reveal">
+
+
   <div class="page-header">
+
+
     <div>
+
+
       <h2>{{ assignment.title }}</h2>
+
+
       <p>Turma <strong>{{ assignment.classroom.name }} - {{ assignment.classroom.school_year }}</strong>
+
+
         {% if assignment.subject %} · Disciplina: <strong>{{ assignment.subject }}</strong>{% endif %}
+
+
         · Entrega: <strong>{{ assignment.due_date.strftime('%d/%m/%Y') }}</strong>
+
+
+        {% if assignment.work_type == 'group' %} · <span style="color:var(--primary);font-weight:600">Em grupo</span>{% endif %}
+
+
         {% if assignment.is_finished %} · <strong style="color:var(--success)">Finalizado</strong>{% endif %}
+
+
       </p>
+
+
       {% if assignment.attachments %}
+
+
       <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">
+
+
         {% for att in assignment.attachments %}
+
+
         <a href="{{ url_for('static', filename=att.file_path) }}" target="_blank" class="btn btn-sm btn-outline" style="font-size:.82rem">
-          📎 {{ att.original_name or 'Anexo PDF' }}
+
+
+          {{ att.original_name or 'Anexo PDF' }}
         </a>
+
+
         {% endfor %}
+
+
       </div>
+
+
       {% elif assignment.attachment_path %}
+
+
       <a href="{{ url_for('static', filename=assignment.attachment_path) }}" target="_blank" class="btn btn-sm btn-outline" style="margin-top:6px;font-size:.82rem">
-        📎 Ver PDF anexado pelo professor
+
+
+        Ver PDF anexado pelo professor
+
+
       </a>
+
+
       {% endif %}
+
+
       {% if assignment.description %}
+
+
       <p style="margin-top:12px;color:var(--text-muted);font-size:.9rem;line-height:1.6;max-width:720px">{{ assignment.description }}</p>
+
+
       {% endif %}
+
+
     </div>
+
+
     <div style="display:flex;gap:8px;align-items:center">
+
+
       {% if not assignment.is_finished %}
+
+
       <form method="post" action="{{ url_for('core.teacher_finish_assignment', assignment_id=assignment.id) }}" onsubmit="return confirm('Finalizar este trabalho? Ele sairá da lista semanal.');" style="margin:0">
+
+
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
         <button type="submit" class="btn btn-primary" style="background:var(--success)">Finalizar trabalho</button>
+
+
       </form>
+
+
       {% endif %}
+
+
       <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline">← Voltar</a>
+
+
     </div>
+
+
   </div>
+
+
+
+
 
   <!-- Resumo -->
-  {% set total = submissions|length + not_submitted|length %}
+
+
   {% set aprovados = submissions|selectattr('status','equalto','aprovado')|list|length %}
+
+
   {% set devolvidos = submissions|selectattr('status','equalto','devolvido')|list|length %}
+
+
   {% set pendentes = submissions|selectattr('status','equalto','pendente')|list|length %}
+
+
   <div class="panel reveal delay-1">
+
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;text-align:center">
+
+
       <div>
+
+
         <div style="font-size:2rem;font-weight:700;color:var(--primary)">{{ submissions|length }}</div>
+
+
         <div style="font-size:.9rem;color:var(--text-muted)">Recebidos</div>
+
+
       </div>
+
+
       <div>
+
+
         <div style="font-size:2rem;font-weight:700;color:var(--success)">{{ aprovados }}</div>
+
+
         <div style="font-size:.9rem;color:var(--text-muted)">Aprovados</div>
+
+
       </div>
+
+
       <div>
+
+
         <div style="font-size:2rem;font-weight:700;color:var(--warning)">{{ pendentes }}</div>
+
+
         <div style="font-size:.9rem;color:var(--text-muted)">Aguardando avaliação</div>
+
+
       </div>
+
+
       <div>
+
+
         <div style="font-size:2rem;font-weight:700;color:var(--danger)">{{ devolvidos }}</div>
+
+
         <div style="font-size:.9rem;color:var(--text-muted)">Devolvidos</div>
+
+
       </div>
+
+
       <div>
+
+
         <div style="font-size:2rem;font-weight:700;color:var(--text-muted)">{{ not_submitted|length }}</div>
+
+
         <div style="font-size:.9rem;color:var(--text-muted)">Não entregaram</div>
+
+
       </div>
+
+
     </div>
+
+
   </div>
 
-  <!-- Submissões recebidas -->
+
+
+
+
+  <!-- Gerenciamento de Grupos (somente para trabalhos em grupo) -->
+
+
+  {% if assignment.work_type == 'group' %}
+
+
   <div class="panel reveal delay-2">
+
+
     <div class="panel-title-row">
-      <h3>Submissões Recebidas</h3>
+
+
+      <h3>Grupos</h3>
+
+
+      <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('form-novo-grupo').style.display = document.getElementById('form-novo-grupo').style.display === 'none' ? 'flex' : 'none'">+ Novo Grupo</button>
+
+
     </div>
 
-    {% if submissions %}
-    <div style="overflow-x:auto">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Aluno</th>
-            <th>Tipo</th>
-            <th>Data</th>
-            <th>Status</th>
-            <th>Nota</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for sub in submissions %}
-          {% set is_group_submission = sub.is_group or (sub.group_members|length > 0) %}
-          <tr>
-            <td>
-              {% if is_group_submission %}
-              <strong>{{ sub.student.full_name }}{% for m in sub.group_members %}, {{ m.student.full_name }}{% endfor %}</strong>
-              <div style="font-size:.8rem;color:var(--text-muted);margin-top:2px">
-                Trabalho em grupo (líder: {{ sub.student.full_name }})
-              </div>
-              {% else %}
-              <strong>{{ sub.student.full_name }}</strong>
-              {% endif %}
-            </td>
-            <td>
-              {% if is_group_submission %}
-              <span class="badge-role" style="background:var(--primary);color:#fff;font-size:.8rem">Em grupo</span>
-              {% else %}
-              <span class="badge-role" style="background:var(--success);color:#fff;font-size:.8rem">Individual</span>
-              {% endif %}
-            </td>
-            <td style="font-size:.9rem;white-space:nowrap">
-              {{ sub.submitted_at|br_datetime('%d/%m/%Y') }}<br>
-              <span style="color:var(--text-muted)">{{ sub.submitted_at|br_datetime('%H:%M') }}</span>
-              {% if sub.file_path %}
-              <br><a href="{{ url_for('static', filename=sub.file_path) }}" target="_blank" style="font-size:.8rem;color:var(--accent)">📥 Arquivo</a>
-              {% endif %}
-            </td>
-            <td>
-              {% if sub.status == 'aprovado' %}
-              <span class="badge-role" style="background:#28a745;color:#fff">✔ Aprovado</span>
-              {% elif sub.status == 'devolvido' %}
-              <span class="badge-role" style="background:#dc3545;color:#fff">↩ Devolvido</span>
-              {% else %}
-              <span class="badge-role" style="background:#ffc107;color:#333">⏳ Pendente</span>
-              {% endif %}
-            </td>
-            <td style="font-size:.95rem;font-weight:600">
-              {{ sub.grade or '—' }}
-            </td>
-            <td>
-              {% set is_approved = sub.status == 'aprovado' %}
-              <button type="button"
-                class="btn btn-sm"
-                style="background:var(--success);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
-                {% if not is_approved %}onclick='openAvaliarModal({{ sub.id }}, "aprovar", {{ sub.student.full_name|tojson }}, {{ assignment.id }})'{% endif %}
-                {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>
-                ✔ Aprovar
-              </button>
-              <button type="button"
-                class="btn btn-sm"
-                style="background:var(--danger);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
-                {% if not is_approved %}onclick='openAvaliarModal({{ sub.id }}, "devolver", {{ sub.student.full_name|tojson }}, {{ assignment.id }})'{% endif %}
-                {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>
-                ↩ Devolver
-              </button>
-              <button type="button"
-                class="btn btn-sm btn-outline"
-                onclick='openHistoricoModal({{ sub.id }}, {{ sub.student.full_name|tojson }})'>
-                Historico
-              </button>
-            </td>
-          </tr>
+
+
+
+
+    <!-- Formulário novo grupo -->
+
+
+    <form id="form-novo-grupo" method="post" action="{{ url_for('core.teacher_create_group', assignment_id=assignment.id) }}" style="display:none;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+
+
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+      <input type="text" name="name" class="form-control" style="width:220px;flex:1 1 160px" placeholder="Nome do grupo (ex: Grupo 1)" required>
+
+
+      <button type="submit" class="btn btn-primary">Criar</button>
+
+
+      <button type="button" class="btn btn-outline" onclick="this.closest('form').style.display='none'">Cancelar</button>
+
+
+    </form>
+
+
+
+
+
+    {% if groups %}
+
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+
+
+      {% for group in groups %}
+
+
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--surface-2)">
+
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+
+
+          <strong style="font-size:.95rem">{{ group.name }}</strong>
+
+
+          <form method="post" action="{{ url_for('core.teacher_delete_group', assignment_id=assignment.id, group_id=group.id) }}" onsubmit="return confirm('Excluir grupo {{ group.name }}?')" style="margin:0">
+
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+            <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;padding:3px 8px">✕</button>
+
+
+          </form>
+
+
+        </div>
+
+
+        <!-- Membros -->
+
+
+        {% if group.members %}
+
+
+        <ul style="margin:0 0 10px;padding-left:18px;font-size:.88rem;display:flex;flex-direction:column;gap:4px">
+
+
+          {% for m in group.members %}
+
+
+          <li style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+
+
+            <span>{{ m.student.full_name }}</span>
+
+
+            <form method="post" action="{{ url_for('core.teacher_remove_group_member', assignment_id=assignment.id, group_id=group.id, student_id=m.student_id) }}" style="margin:0">
+
+
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+              <button type="submit" class="btn btn-sm" style="background:none;color:var(--danger);padding:1px 4px;font-size:.8rem;border:none" title="Remover">✕</button>
+
+
+            </form>
+
+
+          </li>
+
+
           {% endfor %}
-        </tbody>
-      </table>
+
+
+        </ul>
+
+
+        {% else %}
+
+
+        <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Nenhum membro ainda.</div>
+
+
+        {% endif %}
+
+
+        <!-- Adicionar membro -->
+
+
+        {% set available = classroom_students | rejectattr('id', 'in', grouped_ids) | list %}
+
+
+        {% if available %}
+
+
+        <form method="post" action="{{ url_for('core.teacher_add_group_member', assignment_id=assignment.id, group_id=group.id) }}" style="display:flex;gap:6px">
+
+
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+          <select name="student_id" class="form-control" style="font-size:.82rem;flex:1">
+
+
+            <option value="">Adicionar aluno...</option>
+
+
+            {% for s in available %}
+
+
+            <option value="{{ s.id }}">{{ s.full_name }}</option>
+
+
+            {% endfor %}
+
+
+          </select>
+
+
+          <button type="submit" class="btn btn-sm btn-primary">+</button>
+
+
+        </form>
+
+
+        {% else %}
+
+
+        <div style="font-size:.8rem;color:var(--text-muted)">Todos os alunos já estão em grupos.</div>
+
+
+        {% endif %}
+
+
+      </div>
+
+
+      {% endfor %}
+
+
     </div>
+
+
     {% else %}
-    <div class="empty-state">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-      Nenhuma submissão recebida.
+
+
+    <div class="empty-state" style="padding:16px 0">
+
+
+      Nenhum grupo criado ainda. Crie grupos e adicione os alunos antes da entrega.
+
+
     </div>
+
+
     {% endif %}
+
+
+
+
+
+    <!-- Alunos sem grupo -->
+
+
+    {% set ungrouped = classroom_students | rejectattr('id', 'in', grouped_ids) | list %}
+
+
+    {% if ungrouped %}
+
+
+    <div style="margin-top:14px;padding:10px 14px;background:var(--warning-soft);border-radius:8px;font-size:.88rem">
+
+
+      <strong>Sem grupo ({{ ungrouped|length }}):</strong>
+
+
+      {% for s in ungrouped %}{{ s.full_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+
+    </div>
+
+
+    {% endif %}
+
+
   </div>
 
-  <!-- Não submeteram -->
-  {% if not_submitted %}
-  <div class="panel reveal delay-3">
-    <div class="panel-title-row">
-      <h3>Ainda não submeteram</h3>
-    </div>
-    <div class="item-list">
-      {% for student in not_submitted %}
-      <div class="item-card">
-        <div class="item-card-title">{{ student.full_name }}</div>
-        <div class="item-card-meta">E-mail: {{ student.email }}</div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+
   {% endif %}
 
+
+
+
+
+  <!-- Submissões recebidas -->
+
+
+  <div class="panel reveal delay-2">
+
+
+    <div class="panel-title-row">
+
+
+      <h3>Submissões Recebidas</h3>
+
+
+    </div>
+
+
+
+
+
+    {% if submissions %}
+
+
+    <div style="overflow-x:auto">
+
+
+      <table class="admin-table">
+
+
+        <thead>
+
+
+          <tr>
+
+
+            <th>Aluno / Grupo</th>
+
+
+            <th>Tipo</th>
+
+
+            <th>Data</th>
+
+
+            <th>Status</th>
+
+
+            <th>Nota</th>
+
+
+            <th>Ações</th>
+
+
+          </tr>
+
+
+        </thead>
+
+
+        <tbody>
+
+
+          {% for sub in submissions %}
+
+
+          {% set is_group_submission = sub.is_group or (sub.group_members|length > 0) %}
+
+
+          <tr>
+
+
+            <td>
+
+
+              {% if is_group_submission %}
+
+
+              <strong>{{ sub.student.full_name }}</strong>
+
+
+              {% for m in sub.group_members %}<div style="font-size:.82rem;color:var(--text-muted)">{{ m.student.full_name }}{% if m.member_grade %} — <strong style="color:var(--text)">nota: {{ m.member_grade }}</strong>{% endif %}</div>{% endfor %}
+
+
+              {% else %}
+
+
+              <strong>{{ sub.student.full_name }}</strong>
+
+
+              {% endif %}
+
+
+            </td>
+
+
+            <td>
+
+
+              {% if is_group_submission %}
+
+
+              <span class="badge-role" style="background:var(--primary);color:#fff;font-size:.8rem">Em grupo</span>
+
+
+              {% else %}
+
+
+              <span class="badge-role" style="background:var(--success);color:#fff;font-size:.8rem">Individual</span>
+
+
+              {% endif %}
+
+
+            </td>
+
+
+            <td style="font-size:.9rem;white-space:nowrap">
+
+
+              {{ sub.submitted_at|br_datetime('%d/%m/%Y') }}<br>
+
+
+              <span style="color:var(--text-muted)">{{ sub.submitted_at|br_datetime('%H:%M') }}</span>
+
+
+              {% if sub.file_path %}
+
+
+              <br><a href="{{ url_for('static', filename=sub.file_path) }}" target="_blank" style="font-size:.8rem;color:var(--accent)">📥 Arquivo</a>
+
+
+              {% endif %}
+
+
+            </td>
+
+
+            <td>
+
+
+              {% if sub.status == 'aprovado' %}
+
+
+              <span class="badge-role" style="background:#28a745;color:#fff">✔ Aprovado</span>
+
+
+              {% elif sub.status == 'devolvido' %}
+
+
+              <span class="badge-role" style="background:#dc3545;color:#fff">↩ Devolvido</span>
+
+
+              {% else %}
+
+
+              <span class="badge-role" style="background:#ffc107;color:#333">⏳ Pendente</span>
+
+
+              {% endif %}
+
+
+            </td>
+
+
+            <td style="font-size:.95rem;font-weight:600">
+
+
+              {{ sub.grade or '—' }}
+
+
+            </td>
+
+
+            <td>
+
+
+              {% set is_approved = sub.status == 'aprovado' %}
+
+
+              <button type="button"
+
+
+                class="btn btn-sm"
+
+
+                style="background:var(--success);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
+
+
+                {% if not is_approved %}onclick='openAvaliarModal({{ sub|tojson }}, "aprovar", {{ assignment.id }})'{% endif %}
+
+
+                {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>
+
+
+                ✔ Aprovar
+
+
+              </button>
+
+
+              <button type="button"
+
+
+                class="btn btn-sm"
+
+
+                style="background:var(--danger);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
+
+
+                {% if not is_approved %}onclick='openAvaliarModal({{ sub|tojson }}, "devolver", {{ assignment.id }})'{% endif %}
+
+
+                {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>
+
+
+                ↩ Devolver
+
+
+              </button>
+
+
+              <button type="button"
+
+
+                class="btn btn-sm btn-outline"
+
+
+                onclick='openHistoricoModal({{ sub.id }}, {{ sub.student.full_name|tojson }})'>
+
+
+                Histórico
+
+
+              </button>
+
+
+            </td>
+
+
+          </tr>
+
+
+          {% endfor %}
+
+
+        </tbody>
+
+
+      </table>
+
+
+    </div>
+
+
+    {% else %}
+
+
+    <div class="empty-state">
+
+
+      <i class="fa-solid fa-file-lines"></i>
+
+
+      Nenhuma submissão recebida.
+
+
+    </div>
+
+
+    {% endif %}
+
+
+  </div>
+
+
+
+
+
+  <!-- Não submeteram -->
+
+
+  {% if not_submitted %}
+
+
+  <div class="panel reveal delay-3">
+
+
+    <div class="panel-title-row">
+
+
+      <h3>Ainda não submeteram</h3>
+
+
+    </div>
+
+
+    <div class="item-list">
+
+
+      {% for student in not_submitted %}
+
+
+      <div class="item-card">
+
+
+        <div class="item-card-title">{{ student.full_name }}</div>
+
+
+        <div class="item-card-meta">E-mail: {{ student.email }}</div>
+
+
+      </div>
+
+
+      {% endfor %}
+
+
+    </div>
+
+
+  </div>
+
+
+  {% endif %}
+
+
+
+
+
 </div>
+
+
+
+
 
 <div id="historico-templates" style="display:none">
+
+
   {% for sub in submissions %}
+
+
   <div id="hist-sub-{{ sub.id }}">
+
+
     {% if sub.history_events %}
+
+
     <div style="display:flex;flex-direction:column;gap:10px">
+
+
       {% for ev in sub.history_events|sort(attribute='created_at', reverse=True) %}
+
+
       <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+
+
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+
+
           <strong style="font-size:.9rem">
-            {% if ev.action == 'enviado' %}
-            Envio inicial
-            {% elif ev.action == 'reenviado' %}
-            Reenvio
-            {% elif ev.action == 'aprovado' %}
-            Aprovacao
-            {% elif ev.action == 'devolvido' %}
-            Devolucao
-            {% elif ev.action == 'visualizado' %}
-            Visualizado pelo aluno
-            {% elif ev.action == 'finalizado' %}
-            Trabalho finalizado
-            {% else %}
-            {{ ev.action|capitalize }}
+
+
+            {% if ev.action == 'enviado' %}Envio inicial
+
+
+            {% elif ev.action == 'reenviado' %}Reenvio
+
+
+            {% elif ev.action == 'aprovado' %}Aprovação
+
+
+            {% elif ev.action == 'devolvido' %}Devolução
+
+
+            {% elif ev.action == 'visualizado' %}Visualizado pelo aluno
+
+
+            {% elif ev.action == 'finalizado' %}Trabalho finalizado
+
+
+            {% else %}{{ ev.action|capitalize }}
+
+
             {% endif %}
+
+
           </strong>
-          <span style="font-size:.78rem;color:var(--text-muted)">
-            {{ ev.created_at|br_datetime('%d/%m/%Y %H:%M') }}
-          </span>
+
+
+          <span style="font-size:.78rem;color:var(--text-muted)">{{ ev.created_at|br_datetime('%d/%m/%Y %H:%M') }}</span>
+
+
         </div>
-        <div style="font-size:.82rem;color:var(--text-muted);margin-top:4px">
-          Por: {{ ev.actor.full_name if ev.actor else 'Sistema' }}
-        </div>
+
+
+        <div style="font-size:.82rem;color:var(--text-muted);margin-top:4px">Por: {{ ev.actor.full_name if ev.actor else 'Sistema' }}</div>
+
+
         {% if ev.from_status or ev.to_status %}
-        <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px">
-          Status: {{ ev.from_status or '-' }} → {{ ev.to_status or '-' }}
-        </div>
+
+
+        <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px">Status: {{ ev.from_status or '-' }} → {{ ev.to_status or '-' }}</div>
+
+
         {% endif %}
+
+
         {% if ev.grade %}
+
+
         <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px">Nota: {{ ev.grade }}</div>
+
+
         {% endif %}
+
+
         {% if ev.note %}
+
+
         <div style="font-size:.85rem;margin-top:6px">{{ ev.note }}</div>
+
+
         {% endif %}
+
+
       </div>
+
+
       {% endfor %}
+
+
     </div>
+
+
     {% else %}
-    <div class="empty-state" style="padding:12px 0">
-      Nenhum historico registrado para esta submissao.
-    </div>
+
+
+    <div class="empty-state" style="padding:12px 0">Nenhum histórico registrado.</div>
+
+
     {% endif %}
+
+
   </div>
+
+
   {% endfor %}
+
+
 </div>
 
-<!-- Modal de avaliação -->
-<div id="modal-avaliar" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
-  <div class="modal-card" style="max-width:480px;width:95%">
-    <h3 id="modal-avaliar-title" style="margin-bottom:12px">Avaliar submissão</h3>
-    <form id="form-avaliar" method="POST">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" id="modal-action">
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">Nota (opcional)</label>
-        <input type="text" name="grade" class="form-control" placeholder="Ex: 8.5, A, Excelente...">
-      </div>
-      <div class="form-group" style="margin-bottom:16px">
-        <label class="form-label" id="modal-feedback-label">Comentário / Feedback</label>
-        <textarea name="feedback" class="form-control" rows="4" placeholder="Escreva um comentário para o aluno..."></textarea>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" class="btn btn-outline" onclick="closeAvaliarModal()">Cancelar</button>
-        <button type="submit" id="modal-submit-btn" class="btn btn-primary">Confirmar</button>
-      </div>
-    </form>
-  </div>
-</div>
 
-<!-- Modal de historico -->
-<div id="modal-historico" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
-  <div class="modal-card" style="max-width:620px;width:95%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <h3 id="modal-historico-title" style="margin:0">Historico da submissao</h3>
-      <button type="button" class="btn btn-sm btn-outline" onclick="closeHistoricoModal()">Fechar</button>
-    </div>
-    <div id="modal-historico-body" style="padding:14px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
-  </div>
-</div>
 
-<script>
-function openAvaliarModal(submissionId, action, studentName, assignmentId) {
-  const modal = document.getElementById('modal-avaliar');
-  const title = document.getElementById('modal-avaliar-title');
-  const actionInput = document.getElementById('modal-action');
-  const submitBtn = document.getElementById('modal-submit-btn');
-  const form = document.getElementById('form-avaliar');
-  const feedbackLabel = document.getElementById('modal-feedback-label');
 
-  form.action = `/trabalho/${assignmentId}/submissoes/${submissionId}/avaliar`;
-  actionInput.value = action;
 
-  if (action === 'aprovar') {
-    title.textContent = `Aprovar trabalho de ${studentName}`;
-    submitBtn.style.background = 'var(--success)';
-    submitBtn.textContent = '✔ Aprovar';
-    feedbackLabel.textContent = 'Comentário (opcional)';
-  } else {
-    title.textContent = `Devolver trabalho de ${studentName}`;
-    submitBtn.style.background = 'var(--danger)';
-    submitBtn.textContent = '↩ Devolver';
-    feedbackLabel.textContent = 'Motivo da devolução (informe ao aluno)';
+<!-- Dados de submissões em grupo para o modal (JSON) -->
+
+
+<script id="submission-data" type="application/json">
+
+
+{{ submissions | map(attribute='id') | list | tojson }}
+
+
+</script>
+
+
+{% set sub_map = {} %}
+
+
+{% for sub in submissions %}
+
+
+  {% if sub.is_group or sub.group_members|length > 0 %}
+
+
+  <script id="sub-group-{{ sub.id }}" type="application/json">
+
+
+  {
+
+
+    "leader": {"id": {{ sub.student_id }}, "name": {{ sub.student.full_name|tojson }}, "grade": {{ (sub.grade or '')|tojson }}},
+
+
+    "members": [{% for m in sub.group_members %}{"id": {{ m.student_id }}, "name": {{ m.student.full_name|tojson }}, "grade": {{ (m.member_grade or '')|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]
+
+
   }
 
-  // Limpar campos
-  form.querySelector('[name=grade]').value = '';
+
+  </script>
+
+
+  {% endif %}
+
+
+{% endfor %}
+
+
+
+
+
+<!-- Modal de avaliação -->
+
+
+<div id="modal-avaliar" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
+
+
+  <div class="modal-card" style="max-width:520px;width:95%;max-height:90vh;overflow-y:auto">
+
+
+    <h3 id="modal-avaliar-title" style="margin-bottom:12px">Avaliar submissão</h3>
+
+
+    <form id="form-avaliar" method="POST">
+
+
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+      <input type="hidden" name="action" id="modal-action">
+
+
+
+
+
+      <!-- Notas individuais (grupo) -->
+
+
+      <div id="modal-group-grades" style="display:none;margin-bottom:14px">
+
+
+        <div style="font-size:.88rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Notas individuais por membro</div>
+
+
+        <div id="modal-member-list" style="display:flex;flex-direction:column;gap:8px"></div>
+
+
+      </div>
+
+
+
+
+
+      <!-- Nota geral (individual) -->
+
+
+      <div id="modal-grade-geral" class="form-group" style="margin-bottom:12px">
+
+
+        <label class="form-label">Nota (opcional)</label>
+
+
+        <input type="text" name="grade" id="modal-grade-input" class="form-control" placeholder="Ex: 8.5, A, Excelente...">
+
+
+      </div>
+
+
+
+
+
+      <div class="form-group" style="margin-bottom:16px">
+
+
+        <label class="form-label" id="modal-feedback-label">Comentário / Feedback</label>
+
+
+        <textarea name="feedback" class="form-control" rows="3" placeholder="Escreva um comentário para o aluno..."></textarea>
+
+
+      </div>
+
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+
+
+        <button type="button" class="btn btn-outline" onclick="closeAvaliarModal()">Cancelar</button>
+
+
+        <button type="submit" id="modal-submit-btn" class="btn btn-primary">Confirmar</button>
+
+
+      </div>
+
+
+    </form>
+
+
+  </div>
+
+
+</div>
+
+
+
+
+
+<!-- Modal de histórico -->
+
+
+<div id="modal-historico" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
+
+
+  <div class="modal-card" style="max-width:620px;width:95%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+
+
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
+
+
+      <h3 id="modal-historico-title" style="margin:0">Histórico da submissão</h3>
+
+
+      <button type="button" class="btn btn-sm btn-outline" onclick="closeHistoricoModal()">Fechar</button>
+
+
+    </div>
+
+
+    <div id="modal-historico-body" style="padding:14px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
+
+
+  </div>
+
+
+</div>
+
+
+
+
+
+<script>
+
+
+function openAvaliarModal(subData, action, assignmentId) {
+
+
+  const subId = subData.id !== undefined ? subData.id : subData;
+
+
+  const modal = document.getElementById('modal-avaliar');
+
+
+  const title = document.getElementById('modal-avaliar-title');
+
+
+  const actionInput = document.getElementById('modal-action');
+
+
+  const submitBtn = document.getElementById('modal-submit-btn');
+
+
+  const form = document.getElementById('form-avaliar');
+
+
+  const feedbackLabel = document.getElementById('modal-feedback-label');
+
+
+  const modalGradeGeral = document.getElementById('modal-grade-geral');
+
+
+  const modalGroupGrades = document.getElementById('modal-group-grades');
+
+
+  const memberList = document.getElementById('modal-member-list');
+
+
+
+
+
+  form.action = `/trabalho/${assignmentId}/submissoes/${subId}/avaliar`;
+
+
+  actionInput.value = action;
+
+
+
+
+
+  // Limpar campos dinâmicos anteriores
+
+
+  memberList.innerHTML = '';
+
+
+  // Remover inputs dinâmicos antigos
+
+
+  form.querySelectorAll('input[name^="member_grade_"]').forEach(el => el.remove());
+
+
+
+
+
+  // Verifica se há dados de grupo
+
+
+  const groupDataEl = document.getElementById(`sub-group-${subId}`);
+
+
+  let studentName = '';
+
+
+
+
+
+  if (groupDataEl) {
+
+
+    const gd = JSON.parse(groupDataEl.textContent);
+
+
+    studentName = gd.leader.name;
+
+
+    modalGradeGeral.style.display = 'none';
+
+
+    modalGroupGrades.style.display = 'block';
+
+
+
+
+
+    // Líder
+
+
+    const leaderRow = buildMemberGradeRow(gd.leader.id, gd.leader.name + ' (líder)', gd.leader.grade);
+
+
+    memberList.appendChild(leaderRow);
+
+
+    // Demais membros
+
+
+    gd.members.forEach(m => {
+
+
+      memberList.appendChild(buildMemberGradeRow(m.id, m.name, m.grade));
+
+
+    });
+
+
+  } else {
+
+
+    // Trabalho individual
+
+
+    studentName = subData.student_name || '';
+
+
+    modalGradeGeral.style.display = 'block';
+
+
+    modalGroupGrades.style.display = 'none';
+
+
+    form.querySelector('[name=grade]').value = '';
+
+
+  }
+
+
+
+
+
+  if (action === 'aprovar') {
+
+
+    title.textContent = `Aprovar trabalho`;
+
+
+    submitBtn.style.background = 'var(--success)';
+
+
+    submitBtn.textContent = '✔ Aprovar';
+
+
+    feedbackLabel.textContent = 'Comentário (opcional)';
+
+
+  } else {
+
+
+    title.textContent = `Devolver trabalho`;
+
+
+    submitBtn.style.background = 'var(--danger)';
+
+
+    submitBtn.textContent = '↩ Devolver';
+
+
+    feedbackLabel.textContent = 'Motivo da devolução (informe ao aluno)';
+
+
+  }
+
+
+
+
+
   form.querySelector('[name=feedback]').value = '';
 
+
   modal.style.display = 'flex';
+
+
 }
+
+
+
+
+
+function buildMemberGradeRow(studentId, name, currentGrade) {
+
+
+  const row = document.createElement('div');
+
+
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-2);border-radius:6px';
+
+
+  row.innerHTML = `
+
+
+    <span style="flex:1;font-size:.88rem">${name}</span>
+
+
+    <input type="text" name="member_grade_${studentId}" value="${currentGrade || ''}"
+
+
+      class="form-control" style="width:100px;font-size:.88rem" placeholder="Nota...">
+
+
+  `;
+
+
+  return row;
+
+
+}
+
+
+
+
 
 function closeAvaliarModal() {
+
+
   document.getElementById('modal-avaliar').style.display = 'none';
+
+
 }
+
+
+
+
 
 function openHistoricoModal(submissionId, studentName) {
+
+
   const modal = document.getElementById('modal-historico');
+
+
   const title = document.getElementById('modal-historico-title');
+
+
   const body = document.getElementById('modal-historico-body');
+
+
   const source = document.getElementById(`hist-sub-${submissionId}`);
 
-  title.textContent = `Historico de atualizacoes - ${studentName}`;
-  body.innerHTML = source ? source.innerHTML : '<div class="empty-state">Nenhum historico encontrado.</div>';
+
+  title.textContent = `Histórico — ${studentName}`;
+
+
+  body.innerHTML = source ? source.innerHTML : '<div class="empty-state">Nenhum histórico encontrado.</div>';
+
+
   modal.style.display = 'flex';
+
+
 }
+
+
+
+
 
 function closeHistoricoModal() {
+
+
   document.getElementById('modal-historico').style.display = 'none';
+
+
 }
 
+
+
+
+
 document.getElementById('modal-avaliar').addEventListener('click', function(e) {
+
+
   if (e.target === this) closeAvaliarModal();
+
+
 });
 
+
 document.getElementById('modal-historico').addEventListener('click', function(e) {
+
+
   if (e.target === this) closeHistoricoModal();
+
+
 });
+
+
 </script>
+
+
 {% endblock %}
+
+

@@ -25,8 +25,12 @@ if _cors_origins_raw == "*":
 else:
     _cors_allowed_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
 
+# Em produção (FLASK_ENV=production) usa gevent para suporte real a WebSocket.
+# Em desenvolvimento usa threading (sem dependências extras).
+_async_mode = "gevent" if os.getenv("FLASK_ENV") == "production" else "threading"
+
 socketio = SocketIO(
-    async_mode="threading",
+    async_mode=_async_mode,
     cors_allowed_origins=_cors_allowed_origins,
     ping_timeout=60,
     ping_interval=25,

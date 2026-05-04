@@ -53,14 +53,14 @@
               <form method="post" action="{{ url_for('core.approve_student', student_id=student.id) }}" style="display:inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Aprovar este aluno?')">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  <i class="fa-solid fa-check" style="margin-right:4px"></i>
                   Aprovar
                 </button>
               </form>
               <form method="post" action="{{ url_for('core.reject_student', student_id=student.id) }}" style="display:inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Rejeitar este aluno? A conta será deletada.')">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <i class="fa-solid fa-xmark" style="margin-right:4px"></i>
                   Rejeitar
                 </button>
               </form>
@@ -99,8 +99,8 @@
 
   {% else %}
   <div style="padding:40px;text-align:center;color:var(--text-muted)">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="48" height="48" style="margin:0 auto;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p style="margin-top:16px;font-size:1.1rem">Nenhum aluno pendente de aprovação</p>
+    <i class="fa-solid fa-circle-check" style="font-size:48px;display:block;margin:0 auto 16px;opacity:0.5"></i>
+    <p style="font-size:1.1rem">Nenhum aluno pendente de aprovação</p>
     <p style="margin-top:4px">Todos os alunos foram já foram aprovados.</p>
   </div>
   {% endif %}

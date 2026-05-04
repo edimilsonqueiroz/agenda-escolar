@@ -18,28 +18,46 @@
   <!-- Cards de estatisticas -->
   <div class="stats-grid reveal delay-1">
     <div class="stat-card">
-      <span class="stat-value">{{ stats.total }}</span>
-      <span class="stat-label">Total</span>
+      <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.total }}</span>
+        <span class="stat-label">Total</span>
+      </div>
     </div>
     <div class="stat-card stat-card--admin">
-      <span class="stat-value">{{ stats.admin }}</span>
-      <span class="stat-label">Admins</span>
+      <div class="stat-icon"><i class="fa-solid fa-user-shield"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.admin }}</span>
+        <span class="stat-label">Admins</span>
+      </div>
     </div>
     <div class="stat-card stat-card--professor">
-      <span class="stat-value">{{ stats.professor }}</span>
-      <span class="stat-label">Professores</span>
+      <div class="stat-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.professor }}</span>
+        <span class="stat-label">Professores</span>
+      </div>
     </div>
     <div class="stat-card stat-card--aluno">
-      <span class="stat-value">{{ stats.aluno }}</span>
-      <span class="stat-label">Alunos</span>
+      <div class="stat-icon"><i class="fa-solid fa-user-graduate"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.aluno }}</span>
+        <span class="stat-label">Alunos</span>
+      </div>
     </div>
     <div class="stat-card stat-card--psicologo">
-      <span class="stat-value">{{ stats.psicologo }}</span>
-      <span class="stat-label">Psicologos</span>
+      <div class="stat-icon"><i class="fa-solid fa-notes-medical"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.psicologo }}</span>
+        <span class="stat-label">Psicologos</span>
+      </div>
     </div>
     <div class="stat-card stat-card--inativo">
-      <span class="stat-value">{{ stats.inativos }}</span>
-      <span class="stat-label">Inativos</span>
+      <div class="stat-icon"><i class="fa-solid fa-user-slash"></i></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.inativos }}</span>
+        <span class="stat-label">Inativos</span>
+      </div>
     </div>
   </div>
 
@@ -100,12 +118,12 @@
               </span>
             </td>
             <td class="action-cell">
-              <button class="btn-icon edit-btn" title="Editar" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name|e }}" data-user-email="{{ u.email|e }}" data-user-role="{{ u.role }}" data-user-classroom="{{ u.classroom_id or '' }}" data-user-teaching='{{ u.teaching_classrooms|map(attribute="id")|list|tojson }}' data-user-availability='{{ availability_map.get(u.id, {})|tojson }}' data-user-crp="{{ u.crp_number or '' }}" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-              <button class="btn-icon" title="Redefinir senha" onclick="openResetPwd({{ u.id }}, '{{ u.full_name|e }}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
-              <button class="btn-icon" title="{{ 'Desativar' if u.is_active_user else 'Ativar' }}" onclick="openToggleModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.is_active_user else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center">{% if u.is_active_user %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="1"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>{% endif %}</button>
+              <button class="btn-icon edit-btn" title="Editar" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name|e }}" data-user-email="{{ u.email|e }}" data-user-role="{{ u.role }}" data-user-classroom="{{ u.classroom_id or '' }}" data-user-teaching='{{ u.teaching_classrooms|map(attribute="id")|list|tojson }}' data-user-availability='{{ availability_map.get(u.id, {})|tojson }}' data-user-crp="{{ u.crp_number or '' }}" style="display:inline-flex;align-items:center;justify-content:center"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button class="btn-icon" title="Redefinir senha" onclick="openResetPwd({{ u.id }}, '{{ u.full_name|e }}')"><i class="fa-solid fa-lock"></i></button>
+              <button class="btn-icon" title="{{ 'Desativar' if u.is_active_user else 'Ativar' }}" onclick="openToggleModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.is_active_user else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center">{% if u.is_active_user %}<i class="fa-solid fa-toggle-on"></i>{% else %}<i class="fa-solid fa-toggle-off"></i>{% endif %}</button>
               {% if u.id != current_user.id %}
-              <button class="btn-icon {% if not u.can_chat %}btn-icon--danger{% endif %}" title="{{ 'Desbloquear chat' if not u.can_chat else 'Bloquear chat' }}" onclick="openToggleChatModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.can_chat else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>{% if not u.can_chat %}<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>{% endif %}</svg></button>
-              <button class="btn-icon btn-icon--danger" title="Excluir" onclick="openDeleteModal({{ u.id }}, '{{ u.full_name|e }}')" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button>
+              <button class="btn-icon {% if not u.can_chat %}btn-icon--danger{% endif %}" title="{{ 'Desbloquear chat' if not u.can_chat else 'Bloquear chat' }}" onclick="openToggleChatModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.can_chat else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center">{% if not u.can_chat %}<i class="fa-solid fa-comment-slash"></i>{% else %}<i class="fa-solid fa-comment"></i>{% endif %}</button>
+              <button class="btn-icon btn-icon--danger" title="Excluir" onclick="openDeleteModal({{ u.id }}, '{{ u.full_name|e }}')" type="button"><i class="fa-solid fa-trash"></i></button>
               {% endif %}
             </td>
           </tr>
