@@ -67,6 +67,11 @@
         </div>
 
         <div class="form-group">
+          <label>Telefone / WhatsApp</label>
+          <input name="phone" type="tel" value="{{ user.phone or '' }}" placeholder="(11) 91234-5678" maxlength="20" required>
+        </div>
+
+        <div class="form-group">
           <label>Papel na Plataforma</label>
           <div style="padding: 9px 12px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border); color: var(--text);">
             <span class="badge-role badge-{{ user.role }}">{{ user.role|capitalize }}</span>

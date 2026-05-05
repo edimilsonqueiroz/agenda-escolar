@@ -58,6 +58,7 @@ def register():
 def register_post():
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip().lower()
+    phone = request.form.get("phone", "").strip()
     password = request.form.get("password", "").strip()
     confirm_password = request.form.get("confirm_password", "").strip()
 
@@ -78,6 +79,10 @@ def register_post():
         flash("As senhas não coincidem.", "danger")
         return redirect(url_for("auth.register"))
 
+    if not phone:
+        flash("Telefone / WhatsApp é obrigatório.", "danger")
+        return redirect(url_for("auth.register"))
+
     # Verifica se usuário já existe
     existing_user = User.query.filter_by(email=email).first()
     if existing_user:
@@ -91,7 +96,8 @@ def register_post():
             email=email,
             role="aluno",
             is_active_user=True,
-            is_approved=False  # Pendente de aprovação do administrador
+            is_approved=False,  # Pendente de aprovação do administrador
+            phone=phone or None,
         )
         user.set_password(password)
         db.session.add(user)

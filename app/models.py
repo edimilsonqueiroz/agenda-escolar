@@ -44,6 +44,7 @@ class User(TimestampMixin, UserMixin, db.Model):
     can_chat = db.Column(db.Boolean, default=True, nullable=False)
     avatar = db.Column(db.String(255), nullable=True)
     crp_number = db.Column(db.String(30), nullable=True)
+    phone = db.Column(db.String(20), nullable=False, default="")
 
     classroom_id = db.Column(db.Integer, db.ForeignKey("classrooms.id"), nullable=True)
     classroom = db.relationship("Classroom", back_populates="students")

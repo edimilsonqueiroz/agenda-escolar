@@ -635,7 +635,7 @@
                 style="background:var(--success);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
 
 
-                {% if not is_approved %}onclick='openAvaliarModal({{ sub|tojson }}, "aprovar", {{ assignment.id }})'{% endif %}
+                {% if not is_approved %}onclick='openAvaliarModal({{ sub.id }}, "aprovar", {{ assignment.id }})'{% endif %}
 
 
                 {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>
@@ -656,7 +656,7 @@
                 style="background:var(--danger);color:#fff;margin-bottom:4px;{% if is_approved %}opacity:.55;cursor:not-allowed;pointer-events:none{% endif %}"
 
 
-                {% if not is_approved %}onclick='openAvaliarModal({{ sub|tojson }}, "devolver", {{ assignment.id }})'{% endif %}
+                {% if not is_approved %}onclick='openAvaliarModal({{ sub.id }}, "devolver", {{ assignment.id }})'{% endif %}
 
 
                 {% if is_approved %}disabled aria-disabled="true" title="Trabalho já aprovado"{% endif %}>

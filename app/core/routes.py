@@ -717,6 +717,21 @@ def approve_student(student_id):
     
     student.is_approved = True
     db.session.commit()
+
+    if student.phone:
+        from ..whatsapp import notify_cadastro_aprovado
+        if not notify_cadastro_aprovado(nome=student.full_name, phone=student.phone):
+            flash(
+                "Aluno aprovado, mas houve falha ao enviar WhatsApp. "
+                "Confira se o numero fez join no sandbox.",
+                "warning",
+            )
+    else:
+        flash(
+            "Aluno aprovado sem telefone cadastrado para notificacao WhatsApp.",
+            "warning",
+        )
+
     flash(f"Aluno {student.full_name} aprovado com sucesso!", "success")
     return redirect(url_for("core.admin_pending_students"))
 
@@ -733,8 +748,20 @@ def reject_student(student_id):
         return redirect(url_for("core.admin_pending_students"))
     
     email = student.email
+    nome = student.full_name
+    phone = student.phone
     db.session.delete(student)
     db.session.commit()
+
+    if phone:
+        from ..whatsapp import notify_cadastro_reprovado
+        if not notify_cadastro_reprovado(nome=nome, phone=phone):
+            flash(
+                "Aluno rejeitado, mas houve falha ao enviar WhatsApp. "
+                "Confira se o numero fez join no sandbox.",
+                "warning",
+            )
+
     flash(f"Aluno com email {email} rejeitado e removido.", "warning")
     return redirect(url_for("core.admin_pending_students"))
 
@@ -763,6 +790,7 @@ def admin_create_user():
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "").strip()
+    phone = request.form.get("phone", "").strip()
     role = request.form.get("role", "").strip()
     classroom_id = request.form.get("classroom_id") or None
     teaching_classrooms = request.form.getlist("teaching_classrooms")
@@ -790,6 +818,7 @@ def admin_create_user():
         full_name=full_name,
         email=email,
         role=role,
+        phone=phone,
         classroom_id=parse_optional_classroom_id(classroom_id),
         crp_number=crp_number if role == "psicologo" else None,
     )
@@ -821,6 +850,7 @@ def admin_edit_user(user_id):
 
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip().lower()
+    phone = request.form.get("phone", "").strip()
     role = request.form.get("role", "").strip()
     classroom_id = request.form.get("classroom_id") or None
     teaching_classrooms = request.form.getlist("teaching_classrooms")
@@ -844,6 +874,7 @@ def admin_edit_user(user_id):
 
     user.full_name = full_name
     user.email = email
+    user.phone = phone
     user.role = role
     try:
         user.classroom_id = parse_optional_classroom_id(classroom_id)
@@ -1494,6 +1525,36 @@ def create_assignment():
             original_name=orig_name,
         ))
     db.session.commit()
+
+    # Notifica todos os alunos ativos da turma via WhatsApp
+    try:
+        from ..whatsapp import notify_novo_trabalho
+        classroom = Classroom.query.get(classroom_id)
+        prazo_fmt = due_date.strftime("%d/%m/%Y")
+        turma_nome = classroom.name if classroom else str(classroom_id)
+        students_with_phone = [
+            s for s in (classroom.students if classroom else [])
+            if s.phone and s.is_active_user and s.is_approved
+        ]
+        falhas = 0
+        for student in students_with_phone:
+            ok = notify_novo_trabalho(
+                nome=student.full_name,
+                phone=student.phone,
+                titulo=title,
+                disciplina=subject or None,
+                turma=turma_nome,
+                prazo=prazo_fmt,
+                professor=current_user.full_name,
+            )
+            if not ok:
+                falhas += 1
+        if students_with_phone and falhas == len(students_with_phone):
+            flash("Trabalho cadastrado, mas nenhuma notificação WhatsApp foi enviada.", "warning")
+        elif falhas:
+            flash(f"Trabalho cadastrado. {falhas} notificação(ões) WhatsApp não foram entregues.", "warning")
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Erro ao enviar notificações WhatsApp do trabalho: %s", exc)
 
     flash("Trabalho cadastrado com sucesso.", "success")
     return redirect(url_for("core.professor_assignments"))
@@ -2864,7 +2925,22 @@ def student_submit_assignment(assignment_id):
     ))
 
     db.session.commit()
-    
+
+    # Notifica o professor via WhatsApp
+    try:
+        from ..whatsapp import notify_entrega_trabalho
+        teacher = User.query.get(assignment.teacher_id)
+        if teacher and teacher.phone:
+            notify_entrega_trabalho(
+                nome_professor=teacher.full_name,
+                phone=teacher.phone,
+                nome_aluno=current_user.full_name,
+                titulo=assignment.title,
+                acao="reenviou" if is_resubmission else "entregou",
+            )
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Erro ao enviar WhatsApp de entrega ao professor: %s", exc)
+
     status = "em grupo" if is_group else "individual"
     if is_resubmission:
         flash(f"Trabalho reenviado com sucesso ({status}).", "success")
@@ -3259,6 +3335,33 @@ def teacher_evaluate_submission(assignment_id, submission_id):
             ))
 
     db.session.commit()
+
+    # Notifica alunos via WhatsApp
+    try:
+        from ..whatsapp import notify_avaliacao_trabalho
+        _status = submission.status  # "aprovado" ou "devolvido"
+        _feedback = submission.feedback
+
+        def _whatsapp_aluno(student_id, nota=None):
+            aluno = User.query.get(student_id)
+            if aluno and aluno.phone:
+                notify_avaliacao_trabalho(
+                    nome=aluno.full_name,
+                    phone=aluno.phone,
+                    titulo=assignment.title,
+                    status=_status,
+                    feedback=_feedback,
+                    nota=nota,
+                )
+
+        _nota_lider = submission.grade
+        _whatsapp_aluno(submission.student_id, nota=_nota_lider)
+        for _member in submission.group_members:
+            _nota_mem = _member.member_grade or _nota_lider
+            _whatsapp_aluno(_member.student_id, nota=_nota_mem)
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Erro ao enviar WhatsApp de avaliação ao aluno: %s", exc)
+
     flash("Avaliação registrada com sucesso.", "success")
     return redirect(url_for("core.teacher_view_submissions", assignment_id=assignment_id))
 
@@ -3309,7 +3412,12 @@ def update_profile():
     """Salva alteracoes no perfil do usuario autenticado."""
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip()
+    phone = request.form.get("phone", "").strip()
     new_password = request.form.get("new_password", "").strip()
+
+    if not phone:
+        flash("Telefone / WhatsApp não pode estar vazio.", "danger")
+        return redirect(url_for("core.edit_profile"))
 
     if not full_name:
         flash("Nome completo nao pode estar vazio.", "danger")
@@ -3328,6 +3436,7 @@ def update_profile():
     # Atualizar dados
     current_user.full_name = full_name
     current_user.email = email
+    current_user.phone = phone or None
 
     # Se forneceu nova senha, atualizar
     if new_password:

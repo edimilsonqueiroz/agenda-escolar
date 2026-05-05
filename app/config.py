@@ -1,6 +1,12 @@
 import os
 from datetime import timedelta
 
+from dotenv import load_dotenv
+
+
+# Carrega variaveis do arquivo .env quando a aplicacao sobe via python run.py.
+load_dotenv()
+
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 

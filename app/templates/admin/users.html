@@ -98,6 +98,7 @@
             <th>#</th>
             <th>Nome</th>
             <th>E-mail</th>
+            <th>Telefone</th>
             <th>Perfil</th>
             <th>Turma</th>
             <th>Status</th>
@@ -110,6 +111,7 @@
             <td>{{ u.id }}</td>
             <td>{{ u.full_name }}</td>
             <td>{{ u.email }}</td>
+            <td>{{ u.phone or '—' }}</td>
             <td><span class="badge-role badge-{{ u.role }}">{{ u.role }}</span></td>
             <td>{{ u.classroom.name if u.classroom else '—' }}</td>
             <td>
@@ -118,7 +120,7 @@
               </span>
             </td>
             <td class="action-cell">
-              <button class="btn-icon edit-btn" title="Editar" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name|e }}" data-user-email="{{ u.email|e }}" data-user-role="{{ u.role }}" data-user-classroom="{{ u.classroom_id or '' }}" data-user-teaching='{{ u.teaching_classrooms|map(attribute="id")|list|tojson }}' data-user-availability='{{ availability_map.get(u.id, {})|tojson }}' data-user-crp="{{ u.crp_number or '' }}" style="display:inline-flex;align-items:center;justify-content:center"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button class="btn-icon edit-btn" title="Editar" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name|e }}" data-user-email="{{ u.email|e }}" data-user-role="{{ u.role }}" data-user-classroom="{{ u.classroom_id or '' }}" data-user-teaching='{{ u.teaching_classrooms|map(attribute="id")|list|tojson }}' data-user-availability='{{ availability_map.get(u.id, {})|tojson }}' data-user-crp="{{ u.crp_number or '' }}" data-user-phone="{{ u.phone or '' }}" style="display:inline-flex;align-items:center;justify-content:center"><i class="fa-solid fa-pen-to-square"></i></button>
               <button class="btn-icon" title="Redefinir senha" onclick="openResetPwd({{ u.id }}, '{{ u.full_name|e }}')"><i class="fa-solid fa-lock"></i></button>
               <button class="btn-icon" title="{{ 'Desativar' if u.is_active_user else 'Ativar' }}" onclick="openToggleModal({{ u.id }}, '{{ u.full_name|e }}', {{ 'true' if u.is_active_user else 'false' }})" style="display:inline-flex;align-items:center;justify-content:center">{% if u.is_active_user %}<i class="fa-solid fa-toggle-on"></i>{% else %}<i class="fa-solid fa-toggle-off"></i>{% endif %}</button>
               {% if u.id != current_user.id %}
@@ -128,7 +130,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="7" class="empty">Nenhum usuario encontrado.</td></tr>
+          <tr><td colspan="8" class="empty">Nenhum usuario encontrado.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -159,6 +161,10 @@
       <div class="field">
         <label>Senha (minimo 6 caracteres)</label>
         <input name="password" type="password" minlength="6" required>
+      </div>
+      <div class="field">
+        <label>Telefone / WhatsApp</label>
+        <input name="phone" type="tel" placeholder="(11) 91234-5678" maxlength="20" required>
       </div>
       <div class="field">
         <label>Perfil</label>
@@ -236,6 +242,10 @@
       <div class="field">
         <label>E-mail</label>
         <input id="edit-email" name="email" type="email" required>
+      </div>
+      <div class="field">
+        <label>Telefone / WhatsApp</label>
+        <input id="edit-phone" name="phone" type="tel" placeholder="(11) 91234-5678" maxlength="20" required>
       </div>
       <div class="field">
         <label>Perfil</label>
@@ -475,10 +485,11 @@
     });
   }
 
-  function openEdit(id, name, email, role, classroomId, teachingClassroomIds = [], availabilityMap = {}, crpNumber = '') {
+  function openEdit(id, name, email, role, classroomId, teachingClassroomIds = [], availabilityMap = {}, crpNumber = '', phone = '') {
     id = String(id);
     document.getElementById('edit-name').value = name;
     document.getElementById('edit-email').value = email;
+    document.getElementById('edit-phone').value = phone;
     document.getElementById('edit-role').value = role;
     document.getElementById('edit-classroom').value = classroomId || '';
     
@@ -540,7 +551,8 @@
         availabilityMap = {};
       }
       const crp = btn.dataset.userCrp || '';
-      openEdit(id, name, email, role, classroomId, teachingClassroomIds, availabilityMap, crp);
+      const phone = btn.dataset.userPhone || '';
+      openEdit(id, name, email, role, classroomId, teachingClassroomIds, availabilityMap, crp, phone);
     });
   });
 

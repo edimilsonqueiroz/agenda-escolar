@@ -8,10 +8,12 @@ Flask-Limiter
 Flask-Mail
 python-dotenv
 email-validator
+requests
 psycopg[binary]
 reportlab
 Pillow
 qrcode[pil]
+twilio
 # Produção
 gunicorn
 gevent
